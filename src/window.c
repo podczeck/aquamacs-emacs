@@ -55,6 +55,9 @@ Lisp_Object Qscroll_up, Qscroll_down;
 Lisp_Object Qwindow_size_fixed;
 extern Lisp_Object Qleft_margin, Qright_margin;
 
+Lisp_Object Qselect;
+Lisp_Object Qselect_frame_set_input_focus;
+
 static int displayed_window_lines P_ ((struct window *));
 static struct window *decode_window P_ ((Lisp_Object));
 static int count_windows P_ ((struct window *));
@@ -148,7 +151,7 @@ int pop_up_frames;
 
 /* Nonzero means reuse existing frames for displaying buffers.  */
 
-int display_buffer_reuse_frames;
+Lisp_Object display_buffer_reuse_frames;
 
 /* Non-nil means use this function instead of default */
 
@@ -202,6 +205,10 @@ static int sequence_number;
 /* Nonzero after init_window_once has finished.  */
 
 static int window_initialized;
+
+/* List of windows with inhibited header lines  */
+
+Lisp_Object Vheader_line_inhibit_window_list;
 
 /* Hook to run when window config changes.  */
 
@@ -3537,7 +3544,12 @@ display_buffer_1 (window)
       if (FRAME_ICONIFIED_P (f))
 	Fmake_frame_visible (frame);
       else if (FRAME_VISIBLE_P (f))
-	Fraise_frame (frame);
+	{
+	  if (EQ (display_buffer_reuse_frames, Qselect))
+	    call1(Qselect_frame_set_input_focus, frame);
+	  else
+	    Fraise_frame (frame);
+	}
     }
 
   return window;
@@ -3686,7 +3698,7 @@ displayed.  */)
   if (! NILP (frame))
     tem = frame;
   else if (pop_up_frames
-	   || display_buffer_reuse_frames
+	   || !NILP(display_buffer_reuse_frames)
 	   || last_nonminibuf_frame == 0)
     XSETFASTINT (tem, 0);
   else
@@ -6012,6 +6024,25 @@ zero means top of window, negative means relative to bottom of window.  */)
   return Fvertical_motion (arg, window);
 }
 
+/*
+  Return non-nil if the header line in window w is to be inhibited.
+*/
+
+int
+window_header_line_inhibited_p(w)
+     struct window *w;
+{
+  Lisp_Object window;
+
+  if (!NILP(Vheader_line_inhibit_window_list))
+    {
+      XSETWINDOW (window, w);
+      return (!NILP (Fmember(window, Vheader_line_inhibit_window_list)));
+    }
+  return 0;
+}
+
+
 
 
 /***********************************************************************
@@ -7291,6 +7322,12 @@ init_window ()
 void
 syms_of_window ()
 {
+  Qselect = intern ("select");
+  staticpro (&Qselect);
+
+  Qselect_frame_set_input_focus = intern ("select-frame-set-input-focus");
+  staticpro (&Qselect_frame_set_input_focus);
+
   Qscroll_up = intern ("scroll-up");
   staticpro (&Qscroll_up);
 
@@ -7316,6 +7353,9 @@ syms_of_window ()
 
   Qtemp_buffer_show_hook = intern ("temp-buffer-show-hook");
   staticpro (&Qtemp_buffer_show_hook);
+  
+  Vheader_line_inhibit_window_list = Qnil;
+  staticpro (&Vheader_line_inhibit_window_list);
 
   staticpro (&Vwindow_list);
 
@@ -7331,6 +7371,12 @@ Used by `with-output-to-temp-buffer'.
 If this function is used, then it must do the entire job of showing
 the buffer; `temp-buffer-show-hook' is not run unless this function runs it.  */);
   Vtemp_buffer_show_function = Qnil;
+
+
+  DEFVAR_LISP ("header-line-inhibit-window-list", &Vheader_line_inhibit_window_list,
+    doc: /* List of windows in which no header line is shown. */);
+  Vheader_line_inhibit_window_list = Qnil;
+
 
   DEFVAR_LISP ("display-buffer-function", &Vdisplay_buffer_function,
 	       doc: /* If non-nil, function to call to handle `display-buffer'.
@@ -7369,10 +7415,11 @@ is displayed in the `mode-line' face.  */);
 	       doc: /* *Non-nil means to automatically adjust `window-vscroll' to view tall lines.  */);
   auto_window_vscroll_p = 1;
 
-  DEFVAR_BOOL ("display-buffer-reuse-frames", &display_buffer_reuse_frames,
+  DEFVAR_LISP ("display-buffer-reuse-frames", &display_buffer_reuse_frames,
 	       doc: /* *Non-nil means `display-buffer' should reuse frames.
-If the buffer in question is already displayed in a frame, raise that frame.  */);
-  display_buffer_reuse_frames = 0;
+If the buffer in question is already displayed in a frame, raise that frame.  
+`select' means that the frame is not only raised, but also selected.*/);
+  display_buffer_reuse_frames = Qnil;
 
   DEFVAR_LISP ("pop-up-frame-function", &Vpop_up_frame_function,
 	       doc: /* Function to call to handle automatic new frame creation.

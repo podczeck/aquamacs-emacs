@@ -1882,7 +1882,12 @@ mac_dialog_show (f, keymaps, title, header, error_name)
       return Qnil;
     }
 
-  /* Create a tree of widget_value objects
+  /* Force a redisplay before showing the dialog.  If a frame is created
+     just before showing the dialog, its contents may not have been fully
+     drawn.  */
+  Fredisplay (Qt);
+
+ /* Create a tree of widget_value objects
      representing the text label and buttons.  */
   {
     Lisp_Object pane_name, prefix;
@@ -1985,10 +1990,6 @@ mac_dialog_show (f, keymaps, title, header, error_name)
   /* No selection has been chosen yet.  */
   menu_item_selection = 0;
 
-  /* Force a redisplay before showing the dialog.  If a frame is created
-     just before showing the dialog, its contents may not have been fully
-     drawn.  */
-  Fredisplay (Qt);
 
   /* Actually create the dialog.  */
 #if TARGET_API_MAC_CARBON

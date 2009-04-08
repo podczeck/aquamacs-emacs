@@ -716,28 +716,31 @@ or if the window is the only window of its frame."
 	(fit-window-to-buffer window (window-height window)))))
 
 (defun kill-buffer-and-window ()
-  "Kill the current buffer and delete the selected window."
-  (interactive)
-  (let ((window-to-delete (selected-window))
+ "Kill the current buffer and delete the selected window."
+ (interactive)
+ (let ((window-to-delete (selected-window))
 	(buffer-to-kill (current-buffer))
 	(delete-window-hook (lambda ()
 			      (condition-case nil
-				  (delete-window)
+				  (if (eq (window-buffer) buffer-to-kill)
+				      (delete-window))
 				(error nil)))))
-    (unwind-protect
+   (unwind-protect
 	(progn
 	  (add-hook 'kill-buffer-hook delete-window-hook t t)
 	  (if (kill-buffer (current-buffer))
 	      ;; If `delete-window' failed before, we rerun it to regenerate
 	      ;; the error so it can be seen in the echo area.
 	      (when (eq (selected-window) window-to-delete)
-		(delete-window))))
-      ;; If the buffer is not dead for some reason (probably because
-      ;; of a `quit' signal), remove the hook again.
-      (condition-case nil
+		(if (eq (window-buffer) buffer-to-kill)
+		    (delete-window)))))
+     ;; If the buffer is not dead for some reason (probably because
+     ;; of a `quit' signal), remove the hook again.
+     (condition-case nil
 	  (with-current-buffer buffer-to-kill
 	    (remove-hook 'kill-buffer-hook delete-window-hook t))
 	(error nil)))))
+
 
 (defun quit-window (&optional kill window)
   "Quit the current buffer.  Bury it, and maybe delete the selected frame.

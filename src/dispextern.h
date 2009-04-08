@@ -1321,17 +1321,22 @@ struct glyph_string
       && !NILP (XBUFFER ((W)->buffer)->mode_line_format)		\
       && WINDOW_TOTAL_LINES (W) > 1)
 
-/* Value is non-zero if window W wants a header line.  */
 
+extern Lisp_Object Qwindow_wants_header_line_function,
+  Vwindow_wants_header_line_function;
+
+/* Value is non-zero if window W wants a header line.  */
 #define WINDOW_WANTS_HEADER_LINE_P(W)					\
      (!MINI_WINDOW_P ((W))						\
       && !(W)->pseudo_window_p						\
       && FRAME_WANTS_MODELINE_P (XFRAME (WINDOW_FRAME ((W))))		\
       && BUFFERP ((W)->buffer)						\
       && !NILP (XBUFFER ((W)->buffer)->header_line_format)		\
-      && WINDOW_TOTAL_LINES (W) > 1 + !NILP (XBUFFER ((W)->buffer)->mode_line_format))
+      && WINDOW_TOTAL_LINES (W) > 1 + !NILP (XBUFFER ((W)->buffer)->mode_line_format) \
+      && !window_header_line_inhibited_p (W))
 
 
+ 
 /* Return proper value to be used as baseline offset of font that has
    ASCENT and DESCENT to draw characters by the font at the vertical
    center of the line of frame F.
@@ -1800,6 +1805,14 @@ enum prop_idx
   LAST_PROP_IDX
 };
 
+/* An enumerator for the method of wrapping long lines.  */
+ 	  	 
+enum line_wrap_method
+{
+  TRUNCATE,
+  WORD_WRAP,
+  WINDOW_WRAP
+};
 
 struct it_slice
 {
@@ -2004,8 +2017,7 @@ struct it
      where the `^' can be replaced by a display table entry.  */
   unsigned ctl_arrow_p : 1;
 
-  /* 1 means lines are truncated.  */
-  unsigned truncate_lines_p : 1;
+  enum line_wrap_method line_wrap;
 
   /* Non-zero means that the current face has a box.  */
   unsigned face_box_p : 1;
@@ -2860,6 +2872,7 @@ void prepare_face_for_display P_ ((struct frame *, struct face *));
 int xstricmp P_ ((const unsigned char *, const unsigned char *));
 int lookup_face P_ ((struct frame *, Lisp_Object *, int, struct face *));
 int lookup_named_face P_ ((struct frame *, Lisp_Object, int, int));
+int lookup_basic_face P_ ((struct frame *, int));
 int smaller_face P_ ((struct frame *, int, int));
 int face_with_height P_ ((struct frame *, int, int));
 int lookup_derived_face P_ ((struct frame *, Lisp_Object, int, int, int));
@@ -2880,6 +2893,8 @@ extern Lisp_Object Qforeground_color, Qbackground_color;
 extern Lisp_Object Qframe_set_background_mode;
 extern char unspecified_fg[], unspecified_bg[];
 void free_realized_multibyte_face P_ ((struct frame *, int));
+
+extern Lisp_Object Vface_remapping_alist;
 
 /* Defined in xfns.c  */
 

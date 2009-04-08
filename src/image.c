@@ -1213,6 +1213,12 @@ or omitted means use the selected frame.  */)
       struct image *img = IMAGE_FROM_ID (f, id);
       if (img->mask)
 	mask = Qt;
+#if USE_CG_DRAWING
+      /* Mask may be in an Alpha channel in the image data */
+      if (img->data.ptr_val != NULL && 
+	  CGImageGetAlphaInfo(img->data.ptr_val) != kCGImageAlphaNone)
+	mask = Qt;
+#endif
     }
   else
     error ("Invalid image specification");
@@ -1627,7 +1633,7 @@ x_clear_image_1 (f, img, pixmap_p, mask_p, colors_p)
     }
 
 #if defined (MAC_OS) && USE_CG_DRAWING
-  if (img->data.ptr_val)
+  if (img->data.ptr_val != NULL)
     {
       CGImageRelease (img->data.ptr_val);
       img->data.ptr_val = NULL;
@@ -1913,6 +1919,8 @@ postprocess_image (f, img)
     {
       Lisp_Object conversion, spec;
       Lisp_Object mask;
+      int release = 0;
+      int found_p = 0;
 
       spec = img->spec;
 
@@ -1928,13 +1936,15 @@ postprocess_image (f, img)
 
       mask = image_spec_value (spec, QCheuristic_mask, NULL);
       if (!NILP (mask))
-	x_build_heuristic_mask (f, img, mask);
+	{
+	  release = 1;
+	  x_build_heuristic_mask (f, img, mask);
+	}
       else
 	{
-	  int found_p;
-
 	  mask = image_spec_value (spec, QCmask, &found_p);
-
+	  if (found_p)
+	    release = 1;
 	  if (EQ (mask, Qheuristic))
 	    x_build_heuristic_mask (f, img, Qt);
 	  else if (CONSP (mask)
@@ -1954,7 +1964,10 @@ postprocess_image (f, img)
 
 
       /* Should we apply an image transformation algorithm?  */
-      conversion = image_spec_value (spec, QCconversion, NULL);
+      found_p = 0;
+      conversion = image_spec_value (spec, QCconversion, &found_p);
+      if (found_p)
+	release = 1;
       if (EQ (conversion, Qdisabled))
 	x_disable_image (f, img);
       else if (EQ (conversion, Qlaplace))
@@ -1971,6 +1984,13 @@ postprocess_image (f, img)
 			      Fplist_get (tem, QCmatrix),
 			      Fplist_get (tem, QCcolor_adjustment));
 	}
+#if defined (MAC_OS) && USE_CG_DRAWING
+      if (release && img->data.ptr_val != NULL)
+	{
+	  CGImageRelease (img->data.ptr_val);
+	  img->data.ptr_val = NULL;
+	}
+#endif
     }
 }
 
@@ -3072,7 +3092,12 @@ image_load_quartz2d (f, img, png_p)
     }
   CGContextDrawImage (context, rectangle, image);
   QDEndCGContext (ximg, &context);
+
+#if USE_CG_DRAWING
+  img->data.ptr_val = image; /* retain original data */
+#else
   CGImageRelease (image);
+#endif
 
   /* Maybe fill in the background field while we have ximg handy. */
   if (NILP (image_spec_value (img->spec, QCbackground, NULL)))

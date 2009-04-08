@@ -4914,6 +4914,113 @@ mac_get_system_locale ()
     return Qnil;
 }
 
+DEFUN ("mac-launch-URL-with-default-browser", Fmac_launch_url_with_default_browser, Smac_launch_url_with_default_browser, 1, 1, 0,
+       doc: /* Launch the URL with the appropriate handler application.
+file:// URLs are always opened with the system's default browser, i.e.
+the http:// handler. Return non-nil if the URL has been successfully 
+launched.*/)
+     (URLstring)
+     Lisp_Object URLstring;
+{
+  check_mac();
+  CHECK_STRING (URLstring);
+  if (NILP (URLstring))
+    {
+      error ("URL is nil.");
+      return Qnil;
+    }
+
+  BLOCK_INPUT;
+  // get default browser
+	 
+
+ 
+  LSLaunchURLSpec spec;
+  OSStatus status;
+ 
+  if (strncmp("file:/", SDATA(URLstring), 6) == 0)
+    {
+      /* Build URL to find out what the default handler for http is.
+	 Without an explicit application reference, the launch function
+	 (e.g. LSOpenFromURLSpec or ICLaunchURL) will determine the
+	 default file handler for the file, which is not neccessarily the
+	 default browser.*/
+	
+      FSRef appRef;  // will be discarded
+      char* urlStr = "http://www.gnu.org/"; // just a test URL
+      CFStringRef inURLCfs = CFStringCreateWithCString(NULL, urlStr,	
+						       kCFStringEncodingASCII);
+      CFURLRef inURLRef = CFURLCreateWithString(NULL, inURLCfs, NULL);
+	
+      /* Get application for opening html pages */
+      status = LSGetApplicationForURL(inURLRef, kLSRolesAll, &appRef,
+				      &spec.appURL);
+      CFRelease(inURLRef);
+      CFRelease(inURLCfs);
+    } else
+    {
+      spec.appURL = NULL; /* use preferred application */
+      status = noErr;
+    }
+  if (status == noErr) 
+    {
+      /* Open the file / http with the http handler */
+      CFStringRef targetUrlCfs = 
+	CFStringCreateWithCString(NULL, SDATA(URLstring),
+				  kCFStringEncodingASCII);
+
+      /* CFStringRef targetUrlCfsEscaped = 
+	CFURLCreateStringByAddingPercentEscapes(NULL, targetUrlCfs, 
+						NULL, NULL, 
+						kCFStringEncodingUTF8);
+        the URL must already be encoded. */
+      CFURLRef targetUrlRef = 
+	CFURLCreateWithString(NULL, targetUrlCfs, NULL);
+	
+      if (targetUrlRef) 
+	{
+	
+	  if ( (spec.itemURLs = 
+		CFArrayCreate(NULL, (const void **)&targetUrlRef, 1, 
+			      &kCFTypeArrayCallBacks)) == NULL)
+	    {
+	      return Qnil;
+	    }
+	  spec.passThruParams = NULL;
+	  spec.launchFlags = kLSLaunchDefaults;
+	  spec.asyncRefCon = NULL;
+	  status = LSOpenFromURLSpec(&spec, NULL);
+		
+	  CFRelease(spec.itemURLs);
+	  CFRelease(targetUrlRef);
+	}
+      CFRelease(targetUrlCfs);
+      /* CFRelease(targetUrlCfsEscaped); */
+      UNBLOCK_INPUT;
+
+      if (! targetUrlRef) 
+	{
+	  error ("Could not produce valid URL from string.");
+	  return Qnil;
+	}
+      if (status != noErr) 
+	{
+	  error ("Failed to launch default browser. Error %d", XINT(status));
+	  return Qnil;
+	}
+    } 
+  else
+    {
+      UNBLOCK_INPUT;
+      error ("Could not determine default browser. Error %d", XINT(status));
+      return Qnil;
+    }
+
+
+  return Qt;
+}
+
+
 
 #ifdef MAC_OSX
 
@@ -5459,6 +5566,7 @@ syms_of_mac ()
   defsubr (&Smac_process_hi_command);
 #endif
 
+  defsubr (&Smac_launch_url_with_default_browser);
   defsubr (&Smac_set_file_creator);
   defsubr (&Smac_set_file_type);
   defsubr (&Smac_get_file_creator);

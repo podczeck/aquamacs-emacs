@@ -209,6 +209,9 @@
 (if (fboundp 'atan)	; preload some constants and
     (progn		; floating pt. functions if we have float support.
       (load "emacs-lisp/float-sup")))
+(if (eq system-type 'darwin)
+    (progn
+      (load "term/mac-im")))
 (message "%s" (garbage-collect))
 
 (load "vc-hooks")

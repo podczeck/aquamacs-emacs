@@ -265,6 +265,10 @@ enum event_kind
 				   language is changed by the
 				   user.  */
 #endif
+#if defined (MAC_OSX)
+  MAC_CHANGE_INPUT_METHOD_EVENT,/* A MAC_CHANGE_INPUT_METHOD_EVENT is generated
+				   for changing input method on MacOSX. */  
+#endif
   SCROLL_BAR_CLICK_EVENT,	/* .code gives the number of the mouse button
 				   that was clicked.
 				   .modifiers holds the state of the modifier

@@ -1304,7 +1304,7 @@ DEFUN ("internal-char-font", Finternal_char_font, Sinternal_char_font, 1, 2, 0,
       CHECK_NATNUM (ch);
       c = XINT (ch);
       f = XFRAME (selected_frame);
-      face_id = DEFAULT_FACE_ID;
+      face_id = lookup_basic_face (f, DEFAULT_FACE_ID);
     }
   else
     {

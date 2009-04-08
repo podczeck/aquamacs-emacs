@@ -122,6 +122,8 @@ extern Lisp_Object Vmac_ts_active_input_overlay, Vmac_ts_active_input_buf;
 extern Lisp_Object Qbefore_string;
 #endif
 
+extern Lisp_Object Vmac_tool_bar_display_mode;
+
 static int mac_event_to_emacs_modifiers P_ ((EventRef));
 static OSStatus install_menu_target_item_handler P_ ((void));
 #ifdef MAC_OSX
@@ -318,8 +320,8 @@ mac_handle_mouse_event (next_handler, event, data)
     {
     case kEventMouseWheelMoved:
       {
-	WindowRef wp;
-	struct frame *f;
+	WindowRef wp = NULL;
+	struct frame *f = NULL;
 	EventMouseWheelAxis axis;
 	SInt32 delta;
 	Point point;
@@ -328,12 +330,15 @@ mac_handle_mouse_event (next_handler, event, data)
 	if (result != eventNotHandledErr || read_socket_inev == NULL)
 	  break;
 
-	f = mac_focus_frame (&one_mac_display_info);
+	err = GetEventParameter (event, kEventParamMouseLocation,
+				 typeQDPoint, NULL, sizeof (Point),
+				 NULL, &point);
+	if (err != noErr)
+	  break;
 
 	err = GetEventParameter (event, kEventParamWindowRef, typeWindowRef,
 				 NULL, sizeof (WindowRef), NULL, &wp);
-	if (err != noErr
-	    || wp != FRAME_MAC_WINDOW (f))
+	if (err != noErr) 
 	  break;
 
 	err = GetEventParameter (event, kEventParamMouseWheelAxis,
@@ -342,11 +347,13 @@ mac_handle_mouse_event (next_handler, event, data)
 	if (err != noErr || axis != kEventMouseWheelAxisY)
 	  break;
 
-	err = GetEventParameter (event, kEventParamMouseLocation,
-				 typeQDPoint, NULL, sizeof (Point),
-				 NULL, &point);
-	if (err != noErr)
-	  break;
+	/* Normally, wheel events should go to the frame under the mouse */
+	if (wp && IsWindowVisible(wp) && GetWRefCon (wp)) /* prevent crash */
+	  f = mac_window_to_frame (wp);
+	else 
+	  /* Default: the focused frame */
+	  f = mac_focus_frame (&one_mac_display_info); 
+
 
 	point.h -= f->left_pos + FRAME_OUTER_TO_INNER_DIFF_X (f);
 	point.v -= f->top_pos + FRAME_OUTER_TO_INNER_DIFF_Y (f);
@@ -2809,7 +2816,7 @@ mac_create_frame_tool_bar (f)
     }
 
   if (err == noErr)
-    err = HIToolbarSetDisplayMode (toolbar, kHIToolbarDisplayModeIconOnly);
+    err = HIToolbarSetDisplayMode (toolbar, kHIToolbarDisplayModeDefault);
   if (err == noErr)
     {
       static const EventTypeSpec specs[] =
@@ -2902,34 +2909,64 @@ update_frame_tool_bar (f)
       if (label == NULL)
 	label = CFSTR ("");
 
+      CFStringRef itemIdentifier = TOOLBAR_ICON_ITEM_IDENTIFIER;
+      if (CFStringCompare (label,  CFSTR ("--"), 0) == kCFCompareEqualTo)
+	{
+	  itemIdentifier = kHIToolbarFlexibleSpaceIdentifier;
+	  label = CFSTR ("");
+	}
+
       if (pos < old_count)
 	{
 	  CGImageRef old_cg_image = NULL;
 	  CFStringRef old_label = NULL;
+	  CFStringRef old_itemIdentifier = NULL;
 	  Boolean old_enabled_p;
 
 	  item = (HIToolbarItemRef) CFArrayGetValueAtIndex (old_items, pos);
 
-	  HIToolbarItemCopyImage (item, &old_cg_image);
-	  if (cg_image != old_cg_image)
-	    HIToolbarItemSetImage (item, cg_image);
-	  CGImageRelease (old_cg_image);
+	  HIToolbarItemCopyIdentifier (item, &old_itemIdentifier);
+	  if (CFStringCompare (itemIdentifier, old_itemIdentifier, 0) 
+	      != kCFCompareEqualTo)
+	    {
+	      
+	      /* identifier has changed, need to recreate */
+	      item = NULL;
+	      HIToolbarCreateItemWithIdentifier 
+		(toolbar, itemIdentifier, NULL, &item);
+	      if (item)
+		{
+		  HIToolbarItemSetImage (item, cg_image);
+		  HIToolbarItemSetLabel (item, label);
+		  HIToolbarItemSetEnabled (item, (enabled_p || idx >= 0));
+		  HIToolbarInsertItemAtIndex (toolbar, item, pos+1);
+		  HIToolbarRemoveItemAtIndex (toolbar, pos);
+		  CFRelease(item);
+		}
+	    }
+	  else
+	    {
+	      HIToolbarItemCopyImage (item, &old_cg_image);
+	      if (cg_image != old_cg_image)
+		HIToolbarItemSetImage (item, cg_image);
+	      CGImageRelease (old_cg_image);
+	      
+	      HIToolbarItemCopyLabel (item, &old_label);
+	      if (CFStringCompare (label, old_label, 0) != kCFCompareEqualTo)
+		HIToolbarItemSetLabel (item, label);
+	      CFRelease (old_label);
 
-	  HIToolbarItemCopyLabel (item, &old_label);
-	  if (CFStringCompare (label, old_label, 0) != kCFCompareEqualTo)
-	    HIToolbarItemSetLabel (item, label);
-	  CFRelease (old_label);
-
-	  old_enabled_p = HIToolbarItemIsEnabled (item);
-	  if ((enabled_p || idx >= 0) != old_enabled_p)
-	    HIToolbarItemSetEnabled (item, (enabled_p || idx >= 0));
+	      old_enabled_p = HIToolbarItemIsEnabled (item);
+	      if ((enabled_p || idx >= 0) != old_enabled_p)
+		HIToolbarItemSetEnabled (item, (enabled_p || idx >= 0));
+	    }
+	  CFRelease (old_itemIdentifier);
 	}
       else
 	{
 	  item = NULL;
-	  HIToolbarCreateItemWithIdentifier (toolbar,
-					     TOOLBAR_ICON_ITEM_IDENTIFIER,
-					     NULL, &item);
+	  HIToolbarCreateItemWithIdentifier 
+	    (toolbar, itemIdentifier, NULL, &item);
 	  if (item)
 	    {
 	      HIToolbarItemSetImage (item, cg_image);
@@ -2952,6 +2989,23 @@ update_frame_tool_bar (f)
 
   while (pos < old_count)
     HIToolbarRemoveItemAtIndex (toolbar, --old_count);
+
+  if (EQ (Vmac_tool_bar_display_mode, intern ("labels")))
+    {
+      HIToolbarSetDisplayMode (toolbar, kHIToolbarDisplayModeLabelOnly);
+    }
+  else if (EQ (Vmac_tool_bar_display_mode, intern ("icons")))
+    {
+      HIToolbarSetDisplayMode (toolbar, kHIToolbarDisplayModeIconOnly);
+    }
+  else if (EQ (Vmac_tool_bar_display_mode, intern ("both")))
+    {
+      HIToolbarSetDisplayMode (toolbar, kHIToolbarDisplayModeIconAndLabel);
+    }
+  else
+    {
+      HIToolbarSetDisplayMode (toolbar, kHIToolbarDisplayModeDefault);
+    } 
 
   ShowHideWindowToolbar (FRAME_MAC_WINDOW (f), true,
 			 !win_gravity && f == mac_focus_frame (dpyinfo));
@@ -3249,7 +3303,11 @@ mac_set_font_info_for_selection (f, face_id, c)
 	  struct face *face;
 
 	  face_id = FACE_FOR_CHAR (f, FACE_FROM_ID (f, face_id), c);
-	  face = FACE_FROM_ID (f, face_id);
+	  if (NILP (Vface_remapping_alist))
+	    face = FACE_FROM_ID (f, face_id);
+	  else
+	    face = FACE_FROM_ID (f, lookup_basic_face (f, face_id));
+
 	  font = face->font;
 	}
     }
@@ -3358,7 +3416,16 @@ mac_event_to_emacs_modifiers (EventRef eventRef)
   if (!NILP (Vmac_emulate_three_button_mouse)
       && (class == kEventClassMouse || class == kEventClassCommand))
     {
-      mods &= ~(optionKey | cmdKey);
+      /* Only for a true mouse-1 */
+      EventMouseButton button = kEventMouseButtonPrimary;
+      GetEventParameter (eventRef, kEventParamMouseButton, 
+			 typeMouseButton, NULL,
+			 sizeof (EventMouseButton), NULL, &button);
+      if (button == kEventMouseButtonPrimary) 
+	{
+	  mods &= ~(((EQ (Vmac_emulate_three_button_mouse, intern ("control")))
+		     ? controlKey : optionKey) | cmdKey);
+	}
     }
   return mac_to_emacs_modifiers (mods, 0);
 }
@@ -4153,7 +4220,9 @@ XTread_socket (sd, expected, hold_quit)
 #if TARGET_API_MAC_CARBON
 	    if (!(mapped_modifiers
 		  & ~(mac_pass_command_to_system ? cmdKey : 0)
-		  & ~(mac_pass_control_to_system ? controlKey : 0)))
+		  & ~(mac_pass_control_to_system ? controlKey : 0))
+ 		&& mac_pass_key_to_system (er.message & charCodeMask,
+ 					   modifiers))
 	      goto OTHER;
 	    else
 #endif
@@ -4214,6 +4283,7 @@ XTread_socket (sd, expected, hold_quit)
 	    }
 	  count++;
 	}
+      count += mac_store_change_input_method_event (timestamp);
     }
 
   /* If the focus was just given to an autoraising frame,
@@ -5111,18 +5181,35 @@ init_menu_bar ()
 
   err = GetIndMenuItemWithCommandID (NULL, kHICommandQuit, 1,
 				     &menu, &menu_index);
-  if (err == noErr)
-    SetMenuItemCommandKey (menu, menu_index, false, 0);
-  EnableMenuCommand (NULL, kHICommandPreferences);
-  err = GetIndMenuItemWithCommandID (NULL, kHICommandPreferences, 1,
-				     &menu, &menu_index);
+   if (err == noErr) 
+     { /* so that A-Q can be remapped by Emacs if desired */
+       SetMenuItemCommandKey (menu, menu_index, false, 0); 
+       SetMenuItemTextWithCFString 
+	 (menu, menu_index, 
+	  CFStringCreateWithCString(NULL, 
+				    "Quit Aquamacs Emacs         ⌘Q",
+				    kCFStringEncodingUTF8));
+     }
+   EnableMenuCommand (NULL, kHICommandPreferences);
+   err = GetIndMenuItemWithCommandID (NULL, kHICommandPreferences, 1,
+				      &menu, &menu_index);
   if (err == noErr)
     {
+      /* so that A-, can be remapped by Emacs if desired */
       SetMenuItemCommandKey (menu, menu_index, false, 0);
+      
+      SetMenuItemTextWithCFString 
+	(menu, menu_index, 
+	 CFStringCreateWithCString(NULL, 
+				   "Preferences...                      ⌘,",
+				   kCFStringEncodingUTF8));
       InsertMenuItemTextWithCFString (menu, NULL,
 				      0, kMenuItemAttrSeparator, 0);
-      InsertMenuItemTextWithCFString (menu, CFSTR ("About Emacs"),
+      InsertMenuItemTextWithCFString (menu, CFSTR ("About Aquamacs Emacs"),
 				      0, 0, kHICommandAbout);
+      InsertMenuItemTextWithCFString (menu, CFSTR ("Check for Updates..."),
+				      1, 0, 'chku');
+
     }
 #else	/* !MAC_OSX */
 #if TARGET_API_MAC_CARBON
@@ -6621,6 +6708,7 @@ mac_toolbox_initialize ()
 #endif
 #if USE_MAC_TSM
   init_tsm ();
+  init_input_method();
 #endif
 }
 

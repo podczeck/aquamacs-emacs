@@ -99,6 +99,10 @@ Lisp_Object Qsuppress_icon;
 Lisp_Object Qundefined_color;
 Lisp_Object Qcancel_timer;
 
+/* Cancel button selected in mac-dialog-y-or-n-p */
+
+Lisp_Object Qcancel;
+
 /* In dispnew.c */
 
 extern Lisp_Object Vwindow_system_version;
@@ -2649,6 +2653,8 @@ This function is an internal primitive--use `make-frame' instead.  */)
   x_default_parameter (f, parms, Qscroll_bar_width, Qnil,
 		       "scrollBarWidth", "ScrollBarWidth",
 		       RES_TYPE_NUMBER);
+  x_default_parameter (f, parms, Qalpha, Qnil,
+		       "alpha", "Alpha", RES_TYPE_NUMBER);
 
   /* Dimensions, especially FRAME_LINES (f), must be done via change_frame_size.
      Change will not be effected unless different from the current
@@ -3058,6 +3064,54 @@ If omitted or nil, that stands for the selected frame's display.  */)
 
   return make_number ((int) (dpyinfo->width * mm_per_pixel + 0.5f));
 }
+
+/*
+the following interface is a bit overly simplistic. 
+we should provide a way to query the list of devices, and then get the bounds
+for each device. 
+but this should do for now.
+*/
+DEFUN ("mac-display-available-pixel-bounds", Fmac_display_available_pixel_bounds, Smac_display_available_pixel_bounds, 0, 1, 0,
+       doc: /* Get the available bounds of a Mac display in pixels, excluding the Dock. 
+Optional parameter FRAME gives the frame, whose Mac display is queried. 
+If not given, the main display is used. Returns a 4 element list with the bounds
+in the form of (left top right bottom). */)
+     (frame)
+     Lisp_Object frame;
+{
+  Rect rect;
+  Lisp_Object rv = Qnil;
+  GDHandle device_handle = NULL;
+
+  BLOCK_INPUT;   
+
+  if (NILP (frame))
+    device_handle = LMGetMainDevice();
+  else
+    {
+      CHECK_FRAME (frame);
+      GetWindowGreatestAreaDevice (FRAME_MAC_WINDOW (XFRAME (frame)), kWindowContentRgn, &device_handle, NULL);
+      if (!device_handle)
+	device_handle = LMGetMainDevice();
+    }
+  
+  if (device_handle && 
+      GetAvailableWindowPositioningBounds(device_handle, &rect)
+      == noErr) {
+
+  rv = 
+    Fcons( make_number (rect.left),
+	   Fcons( make_number (rect.top),
+		  Fcons( make_number (rect.right),
+			 Fcons( make_number (rect.bottom), Qnil))));
+  }
+  UNBLOCK_INPUT;
+  return rv;
+
+}
+
+
+
 
 DEFUN ("x-display-backing-store", Fx_display_backing_store,
        Sx_display_backing_store, 0, 1, 0,
@@ -4278,6 +4332,111 @@ This is for internal use only.  Use `mac-font-panel-mode' instead.  */)
     error ("Cannot change visibility of the font panel");
   return Qnil;
 }
+
+#if MAC_OSX
+DEFUN ("mac-dialog", Fmac_dialog, Smac_dialog, 2, 2, "",
+       doc: /* Show a dialog.  */)
+  (message, explanation)
+     Lisp_Object message, explanation;
+{
+  DialogRef 		sheet=NULL;
+  AlertStdCFStringAlertParamRec alertParams;
+  struct frame *f = XFRAME (selected_frame);
+  CHECK_STRING (message);
+  CHECK_STRING (explanation);
+ 
+  if (FRAME_MAC_WINDOW (f))
+    {
+      GetStandardAlertDefaultParams(&alertParams,kStdCFStringAlertVersionOne);
+      alertParams.defaultText=(CFStringRef)kAlertDefaultOKText;	
+      alertParams.defaultButton=kAlertStdAlertOKButton;	
+
+      BLOCK_INPUT;
+      {
+	CFStringRef msgTitle = NULL, msgExplanation = NULL;
+	msgTitle       = cfstring_create_with_string (message);
+	msgExplanation = cfstring_create_with_string (explanation);
+
+	OSStatus err;
+	err = CreateStandardAlert(kAlertNoteAlert,
+				  msgTitle,
+				  msgExplanation,
+				  &alertParams,
+				  &sheet);
+	if(err == noErr)
+	  err = RunStandardAlert(sheet,
+				 NULL,
+				 NULL);
+	CFRelease (msgTitle);
+	CFRelease (msgExplanation);
+      }
+      UNBLOCK_INPUT;
+    }
+  return Qnil;
+}
+
+DEFUN ("mac-dialog-y-or-n-p", Fmac_dialog_y_or_n_p, Smac_dialog_y_or_n_p, 2, 3, "",
+       doc: /* Show a dialog, which asks user a "Yes or No" question.
+Return t if answer is "Yes", nil if it is "No". Takes two arguments,
+which are the strings to display to ask the question.
+If optional third argument is non-nil, display a "Cancel" button.
+If it is selected, returns `cancel'.*/)
+  (message, explanation, cancel_button)
+     Lisp_Object message, explanation, cancel_button;
+{
+  DialogRef 		sheet=NULL;
+  AlertStdCFStringAlertParamRec alertParams;
+  struct frame *f = XFRAME (selected_frame);
+  CHECK_STRING (message);
+  CHECK_STRING (explanation);
+  SInt16 index = 0;
+ 
+  if (FRAME_MAC_WINDOW (f))
+    {
+      GetStandardAlertDefaultParams(&alertParams,kStdCFStringAlertVersionOne);
+      alertParams.defaultText=CFSTR ("Yes");
+      alertParams.defaultButton=kAlertStdAlertOKButton;	
+      alertParams.cancelText=CFSTR ("No");
+      alertParams.cancelButton=kAlertStdAlertCancelButton;
+      if (!NILP(cancel_button)) 
+	{
+	  alertParams.otherText=CFSTR ("Cancel");
+	  // The cancel button is "Cancel", in that case, instead of "No"
+	  alertParams.cancelButton=kAlertStdAlertOtherButton;
+	}
+
+      BLOCK_INPUT;
+      {
+	CFStringRef msgTitle = NULL, msgExplanation = NULL;
+	msgTitle       = cfstring_create_with_string (message);
+	msgExplanation = cfstring_create_with_string (explanation);
+
+	OSStatus err;
+	err = CreateStandardAlert(kAlertNoteAlert,
+				  msgTitle,
+				  msgExplanation,
+				  &alertParams,
+				  &sheet);
+	if(err == noErr)
+	  err = RunStandardAlert(sheet,
+				 NULL,
+				 &index);
+	CFRelease (msgTitle);
+	CFRelease (msgExplanation);
+      }
+      UNBLOCK_INPUT;
+    }
+  if( index==kAlertStdAlertOKButton ){
+    return Qt;
+  } else if (index==kAlertStdAlertOtherButton) {
+    return Qcancel;
+  }
+  else{
+    return Qnil;
+  }
+}
+#endif /*MAC_OSX*/
+
 #endif
 
 #if USE_ATSUI
@@ -4301,6 +4460,81 @@ ID is specified by either an integer or a float.  */)
   UNBLOCK_INPUT;
   return result;
 }
+
+#if MAC_OSX 
+
+DEFUN ("mac-show-menu-bar", Fmac_show_menu_bar, Smac_show_menu_bar, 0, 0, "",
+       doc: /* Show the menu bar.  */)
+    ()
+{
+  if ( EQ (Vwindow_system, intern ("mac")))
+    ShowMenuBar();
+  return Qnil;
+}
+DEFUN ("mac-hide-menu-bar", Fmac_hide_menu_bar, Smac_hide_menu_bar, 0, 0, "",
+       doc: /* Hide the menu bar.  */)
+    ()
+{
+  if ( EQ (Vwindow_system, intern ("mac")))
+    HideMenuBar();
+  return Qnil;
+}
+DEFUN ("mac-spotlight-search", Fmac_spotlight_search,
+       Smac_spotlight_search, 1, 1, "MSearch in Spotlight: ",
+       doc: /* Search STRING with Spotlight. */)
+     (string)
+     Lisp_Object string;
+{
+  CFStringRef search_str;
+  search_str = cfstring_create_with_string ( string );
+  if( search_str != NULL )
+    HISearchWindowShow(search_str,kNilOptions);
+  CFRelease (search_str);
+  return Qnil;
+}
+/* Originally from Kurita-san's SmartActivate (Cocoa) */
+DEFUN ("mac-process-activate", Fmac_process_activate,
+       Smac_process_activate, 1, 1, 0,
+       doc: /* Show up the frontmost window of a Mac OSX application process.
+Pass a bundle identifier IDENTIFIER to specify the application. */)
+     (identifier)
+     Lisp_Object identifier;
+{
+  CFDictionaryRef pDict = NULL;
+  CFStringRef pDictKey = CFSTR( "CFBundleIdentifier" ), idKey = NULL;
+  ProcessSerialNumber psn = {kNoProcess, kNoProcess};
+  Boolean isFound = false;
+
+  if (STRINGP (identifier))
+    idKey = cfstring_create_with_string (identifier);
+  else
+    return Qnil;
+
+  OSErr err = GetNextProcess (&psn);
+  while( err == noErr)
+    {
+      pDict = ProcessInformationCopyDictionary
+      (&psn, kProcessDictionaryIncludeAllInformationMask);
+      if( CFDictionaryContainsKey( pDict, pDictKey ) )
+        {
+          CFStringRef dictValue = CFDictionaryGetValue( pDict, pDictKey );
+          if (dictValue != NULL)
+            if( CFStringCompare ( dictValue, idKey, 0 ) == 0 )
+              isFound = true;
+        }
+      CFRelease( pDict );
+      if (isFound) break;
+      err = GetNextProcess (&psn);
+    }
+
+  if( isFound )
+    SetFrontProcessWithOptions ( &psn, kSetFrontProcessFrontWindowOnly );
+
+  return Qnil;
+}
+
+#endif /*MAC_OSX*/
+
 #endif
 
 
@@ -4342,6 +4576,7 @@ frame_parm_handler mac_frame_parm_handlers[] =
   x_set_fringe_width,
   0, /* x_set_wait_for_wm, */
   x_set_fullscreen,
+  x_set_alpha,
 };
 
 void
@@ -4367,6 +4602,9 @@ syms_of_macfns ()
   Qcancel_timer = intern ("cancel-timer");
   staticpro (&Qcancel_timer);
   /* This is the end of symbol initialization.  */
+
+  Qcancel = intern ("cancel");
+  staticpro (&Qcancel);
 
   /* Text property `display' should be nonsticky by default.  */
   Vtext_property_default_nonsticky
@@ -4500,6 +4738,7 @@ Chinese, Japanese, and Korean.  */);
   defsubr (&Sx_display_list);
   defsubr (&Sx_synchronize);
   defsubr (&Sx_focus_frame);
+  defsubr (&Smac_display_available_pixel_bounds);
 
   /* Setting callback functions for fontset handler.  */
   get_font_info_func = x_get_font_info;
@@ -4530,6 +4769,12 @@ Chinese, Japanese, and Korean.  */);
 
 #if TARGET_API_MAC_CARBON
   defsubr (&Sx_file_dialog);
+#if MAC_OSX
+  defsubr (&Smac_show_menu_bar);
+  defsubr (&Smac_hide_menu_bar);
+  defsubr (&Smac_spotlight_search);
+  defsubr (&Smac_process_activate);
+#endif
 #endif
   defsubr (&Smac_clear_font_name_table);
 #if USE_MAC_FONT_PANEL
@@ -4537,6 +4782,10 @@ Chinese, Japanese, and Korean.  */);
 #endif
 #if USE_ATSUI
   defsubr (&Smac_atsu_font_face_attributes);
+#endif
+#if TARGET_API_MAC_CARBON
+  defsubr (&Smac_dialog);
+  defsubr (&Smac_dialog_y_or_n_p);
 #endif
 }
 

@@ -83,9 +83,16 @@ Boston, MA 02110-1301, USA.  */
 
 
 
+int mac_autohide_menubar_on_fullscreen;
+
 /* Non-nil means Emacs uses toolkit scroll bars.  */
 
 Lisp_Object Vx_toolkit_scroll_bars;
+
+#if USE_MAC_TOOLBAR
+/* Specify whether to display the tool bar as icons with labels. */
+Lisp_Object Vmac_tool_bar_display_mode;
+#endif
 
 /* If non-zero, the text will be rendered using Core Graphics text
    rendering which may anti-alias the text.  */
@@ -237,6 +244,7 @@ static void x_update_begin P_ ((struct frame *));
 static void x_update_window_begin P_ ((struct window *));
 static void x_after_update_window_line P_ ((struct glyph_row *));
 
+static CGDirectDisplayID mac_display_id P_ ((WindowRef));
 static XCharStruct *mac_per_char_metric P_ ((XFontStruct *, XChar2b *, int));
 static void XSetFont P_ ((Display *, GC, XFontStruct *));
 
@@ -469,6 +477,32 @@ XDrawLine (display, p, gc, x1, y1, x2, y2)
 
 
 static void
+mac_erase_rectangle_with_color (f, gc, x, y, width, height, color)
+     struct frame *f;
+     GC gc;
+     int x, y;
+     unsigned int width, height;
+     unsigned long color;
+{
+#if USE_CG_DRAWING
+  CGContextRef context;
+  context = mac_begin_cg_clip (f, gc);
+  CG_SET_FILL_COLOR (context, color); 
+  CGContextFillRect (context, mac_rect_make (f, x, y, width, height));
+  mac_end_cg_clip (f);
+#else
+  Rect r;
+
+  mac_begin_clip (f, gc);
+  RGBBackColor (color);
+  SetRect (&r, x, y, x + width, y + height);
+  EraseRect (&r);
+  RGBBackColor (GC_BACK_COLOR (FRAME_NORMAL_GC (f)));
+  mac_end_clip (f, gc);
+#endif
+}
+
+static void
 mac_erase_rectangle (f, gc, x, y, width, height)
      struct frame *f;
      GC gc;
@@ -477,9 +511,8 @@ mac_erase_rectangle (f, gc, x, y, width, height)
 {
 #if USE_CG_DRAWING
   CGContextRef context;
-
   context = mac_begin_cg_clip (f, gc);
-  CG_SET_FILL_COLOR_WITH_GC_BACKGROUND (context, gc);
+  CG_SET_FILL_COLOR_WITH_GC_BACKGROUND (context, gc); 
   CGContextFillRect (context, mac_rect_make (f, x, y, width, height));
   mac_end_cg_clip (f);
 #else
@@ -1562,11 +1595,13 @@ mac_copy_area_with_mask (src, mask, f, gc, src_x, src_y,
 }
 #endif	/* !USE_CG_DRAWING */
 
+/* defined in mactoolbox.c */
+#define mac_window_to_frame(wp) (((mac_output *) GetWRefCon (wp))->mFP)
 
 /* Mac replacement for XCopyArea: used only for scrolling.  */
 
 #if TARGET_API_MAC_CARBON
-/* Defined in mactoolbox.c.  */
+/* Defined in either mactoolbox.c or macappkit.m.  */
 extern void mac_scroll_area P_ ((struct frame *, GC, int, int,
 				 unsigned int, unsigned int, int, int));
 #else  /* not TARGET_API_MAC_CARBON */
@@ -2533,6 +2568,38 @@ mac_encode_char (c, char2b, font_info, two_byte_p)
   return FONT_TYPE_UNKNOWN;
 }
 
+void
+x_set_frame_alpha (f)
+     struct frame *f;
+{
+  struct mac_display_info *dpyinfo = FRAME_MAC_DISPLAY_INFO (f);
+  SInt32 response;
+  OSErr err;
+  double alpha = 1.0, alpha_min = 1.0;
+
+  BLOCK_INPUT;
+  err = Gestalt (gestaltSystemVersion, &response);
+  UNBLOCK_INPUT;
+
+  if (dpyinfo->x_highlight_frame == f)
+    alpha = f->alpha[0];
+  else
+    alpha = f->alpha[1];
+
+  if (FLOATP (Vframe_alpha_lower_limit))
+    alpha_min = XFLOAT_DATA (Vframe_alpha_lower_limit);
+  else if (INTEGERP(Vframe_alpha_lower_limit))
+    alpha_min = (XINT (Vframe_alpha_lower_limit)) / 100.0;
+
+  if (alpha < 0.0 || 1.0 < alpha)
+    alpha = 1.0;
+  else if (0.0 <= alpha && alpha < alpha_min && alpha_min <= 1.0)
+    alpha = alpha_min;
+
+  if ((err == noErr) && (response >= 0x1020)) {
+    SetWindowAlpha (FRAME_MAC_WINDOW(f), alpha);
+  }
+}
 
 
 /***********************************************************************
@@ -4249,6 +4316,7 @@ frame_highlight (f)
      struct frame *f;
 {
   x_update_cursor (f, 1);
+  x_set_frame_alpha (f);
 }
 
 static void
@@ -4256,6 +4324,7 @@ frame_unhighlight (f)
      struct frame *f;
 {
   x_update_cursor (f, 1);
+  x_set_frame_alpha (f);
 }
 
 /* The focus has changed.  Update the frames as necessary to reflect
@@ -4300,6 +4369,19 @@ x_new_focus_frame (dpyinfo, frame)
     }
 
   x_frame_rehighlight (dpyinfo);
+
+  if (frame)
+    {
+      CGDirectDisplayID display = mac_display_id (FRAME_MAC_WINDOW(frame));
+      CGDirectDisplayID main_display = CGMainDisplayID ();
+      if (display == main_display)
+        {
+          if (frame->want_fullscreen == FULLSCREEN_BOTH)
+            SetSystemUIMode(kUIModeAllHidden, kUIOptionAutoShowMenuBar);
+          else
+            SetSystemUIMode(kUIModeNormal, 0);
+        }
+    }
 }
 
 /* Handle FocusIn and FocusOut state changes for FRAME.
@@ -4547,12 +4629,23 @@ XTmouse_position (fp, insist, bar_window, part, x, y, time)
 
       last_mouse_scroll_bar = Qnil;
 
-      if (FRAME_MAC_DISPLAY_INFO (*fp)->grabbed && last_mouse_frame
-	  && FRAME_LIVE_P (last_mouse_frame))
-	f1 = last_mouse_frame;
-      else
-	f1 = mac_focus_frame (FRAME_MAC_DISPLAY_INFO (*fp));
+      f1=NULL;
+      Point pt;
+      WindowRef window;
 
+      GetGlobalMouse (&pt); 
+
+      WindowPartCode wpc = FindWindow (pt, &window);
+      if (wpc >= inContent && window != NULL) {
+	f1 = mac_window_to_frame (window);
+      }
+      if (!f1 || !FRAME_LIVE_P (f1)) {
+	if (FRAME_MAC_DISPLAY_INFO (*fp)->grabbed && last_mouse_frame
+	    && FRAME_LIVE_P (last_mouse_frame))
+	    f1 = last_mouse_frame;
+	else
+	  f1 = mac_focus_frame (FRAME_MAC_DISPLAY_INFO (*fp));
+      }
       if (f1)
 	{
 	  /* Ok, we found a frame.  Store all the values.
@@ -5258,7 +5351,20 @@ mac_clear_frame_area (f, x, y, width, height)
      struct frame *f;
      int x, y, width, height;
 {
-  mac_clear_area (f, x, y, width, height);
+  unsigned long color = FRAME_NORMAL_GC (f)->xgcv.background;
+
+  struct face *face = NULL; //  FRAME_DEFAULT_FACE (f);
+
+  if (updated_window)
+    if (current_buffer && XBUFFER (updated_window->buffer) != current_buffer)
+      face = FACE_FROM_ID (f, lookup_basic_face_for_buffer (f, DEFAULT_FACE_ID, updated_window->buffer) );
+    else
+      face = FACE_FROM_ID (f, lookup_basic_face (f, DEFAULT_FACE_ID) );
+
+  if (face) 
+    mac_erase_rectangle_with_color (f, FRAME_NORMAL_GC (f), x, y, width, height, face->background);
+  else
+    mac_clear_area (f, x, y, width, height);
 }
 
 
@@ -5593,6 +5699,13 @@ x_set_offset (f, xoff, yoff, change_gravity)
      register int xoff, yoff;
      int change_gravity;
 {
+  int xoff_preserve, yoff_preserve;
+  /* Refuse to change one or both offsets if in full-screen mode. */
+  if (f->want_fullscreen & FULLSCREEN_HEIGHT)
+    yoff_preserve = f->top_pos;
+  if (f->want_fullscreen & FULLSCREEN_WIDTH)
+    xoff_preserve = f->left_pos;
+
   if (change_gravity > 0)
     {
       f->top_pos = yoff;
@@ -5606,18 +5719,27 @@ x_set_offset (f, xoff, yoff, change_gravity)
     }
   x_calc_absolute_position (f);
 
+  /* workaround */
+  if (f->want_fullscreen & FULLSCREEN_HEIGHT)
+    f->top_pos = yoff_preserve;
+  if (f->want_fullscreen & FULLSCREEN_WIDTH)
+    f->left_pos = xoff_preserve;
+
   BLOCK_INPUT;
   x_wm_set_size_hint (f, (long) 0, 0);
 
 #if TARGET_API_MAC_CARBON
+
   mac_move_window_structure (FRAME_MAC_WINDOW (f), f->left_pos, f->top_pos);
   /* If the title bar is completely outside the screen, adjust the
      position. */
+#if !USE_APPKIT
   ConstrainWindowToScreen (FRAME_MAC_WINDOW (f), kWindowTitleBarRgn,
 			   kWindowConstrainMoveRegardlessOfFit
 			   | kWindowConstrainAllowPartial, NULL, NULL);
   if (!NILP (tip_frame) && XFRAME (tip_frame) == f)
     mac_handle_origin_change (f);
+#endif	/* !USE_APPKIT */
 #else
   {
     Rect inner, outer, screen_rect, dummy;
@@ -5626,6 +5748,7 @@ x_set_offset (f, xoff, yoff, change_gravity)
     mac_get_window_bounds (f, &inner, &outer);
     f->x_pixels_diff = inner.left - outer.left;
     f->y_pixels_diff = inner.top - outer.top;
+
     MoveWindow (FRAME_MAC_WINDOW (f), f->left_pos + f->x_pixels_diff,
 		f->top_pos + f->y_pixels_diff, false);
 
@@ -5653,7 +5776,6 @@ x_set_offset (f, xoff, yoff, change_gravity)
 	  f->top_pos = screen_rect.top;
 	else if (inner.top >= screen_rect.bottom)
 	  f->top_pos = screen_rect.bottom - (outer.bottom - outer.top);
-
 	MoveWindow (FRAME_MAC_WINDOW (f), f->left_pos + f->x_pixels_diff,
 		    f->top_pos + f->y_pixels_diff, false);
       }
@@ -5679,6 +5801,7 @@ x_set_window_size (f, change_gravity, cols, rows)
   BLOCK_INPUT;
 
   check_frame_size (f, &rows, &cols);
+
   f->scroll_bar_actual_width
     = FRAME_SCROLL_BAR_COLS (f) * FRAME_COLUMN_WIDTH (f);
 
@@ -5689,6 +5812,17 @@ x_set_window_size (f, change_gravity, cols, rows)
 
   f->win_gravity = NorthWestGravity;
   x_wm_set_size_hint (f, (long) 0, 0);
+
+  /* Refuse to change height, width, or both if in full-screen mode. */
+  Rect b;
+  OSStatus st = GetWindowBounds(FRAME_MAC_WINDOW (f), kWindowContentRgn, &b);
+  if (st == noErr)
+    {
+      if (f->want_fullscreen & FULLSCREEN_HEIGHT)
+        pixelheight = b.bottom - b.top;
+      if (f->want_fullscreen & FULLSCREEN_WIDTH)
+        pixelwidth = b.right - b.left;
+    }
 
   mac_size_window (FRAME_MAC_WINDOW (f), pixelwidth, pixelheight, 0);
 
@@ -8186,6 +8320,8 @@ x_find_ccl_program (fontp)
 /* Contains the string "reverse", which is a constant for mouse button emu.*/
 Lisp_Object Qreverse;
 
+Lisp_Object Qfullscreen_saved_state;
+
 
 /* Modifier associated with the control key, or nil to ignore. */
 Lisp_Object Vmac_control_modifier;
@@ -8403,11 +8539,21 @@ mac_get_emulated_btn ( UInt32 modifiers )
 {
   int result = 0;
   if (!NILP (Vmac_emulate_three_button_mouse)) {
-    int cmdIs3 = !EQ (Vmac_emulate_three_button_mouse, Qreverse);
-    if (modifiers & cmdKey)
-      result = cmdIs3 ? 2 : 1;
-    else if (modifiers & optionKey)
-      result = cmdIs3 ? 1 : 2;
+    if (EQ (Vmac_emulate_three_button_mouse, Qreverse))
+      {
+	result = (modifiers & optionKey) ? ((modifiers & cmdKey) ? 3 : 2) : 
+	  ((modifiers & cmdKey) ? 1 : 0);
+      }
+    else if (EQ (Vmac_emulate_three_button_mouse, Qcontrol))
+      {
+	result = (modifiers & controlKey) ? ((modifiers & cmdKey) ? 3 : 2) : 
+	  ((modifiers & cmdKey) ? 1 : 0);
+      }
+    else 
+      {
+	result = (modifiers & optionKey) ? ((modifiers & cmdKey) ? 3 : 1) : 
+	  ((modifiers & cmdKey) ? 2 : 0);
+      }
   }
   return result;
 }
@@ -9434,6 +9580,221 @@ x_delete_display (dpyinfo)
       bzero (dpyinfo, sizeof (*dpyinfo));
     }
 }
+
+/* Full-screen mode */
+
+static CGDirectDisplayID mac_display_id (wnd)
+     WindowRef wnd;
+{
+  OSStatus s;
+  CGDirectDisplayID display_id;
+    
+#if MAC_OS_X_VERSION_MIN_REQUIRED >= 1050
+  s = HIWindowGetGreatestAreaDisplay (wnd, kWindowContentRgn,
+                                      kHICoordSpaceScreenPixel, &display_id, 
+                                      NULL);
+  if (s != noErr)
+    return NULL;
+#else
+  GDHandle devh;
+  DisplayIDType id;
+
+  s = GetWindowGreatestAreaDevice (wnd, kWindowContentRgn, &devh, NULL);
+  if (s != noErr)
+    return NULL;
+  OSErr e = DMGetDisplayIDByGDevice (devh, &id, true);
+  if (e != noErr)
+    return NULL;
+  display_id = (CGDirectDisplayID)id;
+#endif
+  return display_id;
+}
+
+#define FNS_kWindowNoTitleBarAttribute 512
+
+extern Lisp_Object Qfullwidth, Qfullheight, Qfullboth;
+
+struct fullscreen_state {
+  int mode, top, bottom, left, right;
+};
+
+static int fullscreen_mode_as_int (symbol)
+     Lisp_Object symbol;
+{
+  CHECK_SYMBOL (symbol);
+  if (EQ (symbol, Qfullwidth))
+    return FULLSCREEN_WIDTH;
+  if (EQ (symbol, Qfullheight))
+    return FULLSCREEN_HEIGHT;
+  if (EQ (symbol, Qfullboth))
+    return FULLSCREEN_BOTH;
+  return FULLSCREEN_NONE;
+}
+
+static Lisp_Object fullscreen_mode_as_symbol (i)
+     int i;
+{
+  Lisp_Object mode = Qnil;
+  switch (i) {
+  case FULLSCREEN_WIDTH: mode = Qfullwidth; break;
+  case FULLSCREEN_HEIGHT: mode = Qfullheight; break;
+  case FULLSCREEN_BOTH: mode = Qfullboth; break;
+  }
+  return mode;
+}
+
+static struct fullscreen_state *
+get_fullscreen_state (f)
+     FRAME_PTR f;
+{
+  struct fullscreen_state *s = xmalloc (sizeof (struct fullscreen_state));
+  s->mode = FULLSCREEN_NONE;
+  s->top = s->left = s->bottom = s->right = INT_MAX;
+  Lisp_Object frame;
+  XSETFRAME (frame, f);
+  Lisp_Object list = Fframe_parameter (frame, Qfullscreen_saved_state);
+  if (Qnil != list)
+    {
+      CHECK_CONS (list);
+      s->mode = fullscreen_mode_as_int (Fcar (list)); 
+      list = Fcdr (list);
+#define POP_NUMBER_OR_NIL(dest, list) do { CHECK_CONS (list); if (Qnil == Fcar (list)) dest = INT_MAX; else { CHECK_NUMBER (Fcar (list)); dest = XINT (Fcar (list)); } list = Fcdr (list); } while (0)
+      POP_NUMBER_OR_NIL (s->top, list);
+      POP_NUMBER_OR_NIL (s->left, list);
+      POP_NUMBER_OR_NIL (s->bottom, list);
+      POP_NUMBER_OR_NIL (s->right, list);
+#undef POP_NUMBER
+    }
+  return s;
+}
+
+static void
+save_fullscreen_state (f, s)
+     FRAME_PTR f;
+     const struct fullscreen_state *s;
+{
+  if (s->mode == FULLSCREEN_NONE)
+    store_frame_param (f, Qfullscreen_saved_state, Qnil);
+  else
+#define NUM(n) n == INT_MAX ? Qnil : make_number (n)
+      store_frame_param (f, Qfullscreen_saved_state, 
+                         list5 (fullscreen_mode_as_symbol (s->mode), 
+                                NUM (s->top), NUM (s->left), NUM (s->bottom),
+                                NUM (s->right)));
+#undef NUM
+}
+
+static pascal void mac_handle_display_reconfiguration (dispID, flags, userInfo)
+     CGDirectDisplayID dispID;
+     CGDisplayChangeSummaryFlags flags;
+     void* userInfo;
+{
+  /* Leave full-screen mode when the display is reconfigured (e.g., a
+     display is added or removed, or the resolution is changed)
+     because it is not obvious whether resizing the window is always
+     the right thing to do. */
+  Lisp_Object frame;
+  XSETFRAME (frame, (FRAME_PTR)userInfo);
+  Fmodify_frame_parameters (frame, list1 (Fcons (Qfullscreen, Qnil)));
+}
+
+static void
+mac_fullscreen_hook (f)
+     FRAME_PTR f;
+{
+  Rect b;
+  OSStatus st;
+     
+  if (f->async_visible)
+    {
+      /* May signal errors, so do before blocking input. */
+      struct fullscreen_state *s = get_fullscreen_state (f);
+
+      BLOCK_INPUT;
+
+      /* Must get the current bounds _before_ removing the title bar,
+         otherwise the window will be too short when restored. */
+      st = GetWindowBounds (FRAME_MAC_WINDOW (f), kWindowStructureRgn, &b);
+      if (st != noErr)
+        {
+          UNBLOCK_INPUT;
+          error ("Failed to get current window bounds.");
+        }
+
+      CGDirectDisplayID display = mac_display_id (FRAME_MAC_WINDOW(f));
+      if (!display)
+        {
+          UNBLOCK_INPUT;
+          error ("Failed to get display ID.");
+        }
+      CGDirectDisplayID main_display = CGMainDisplayID ();
+      if ((f->want_fullscreen & FULLSCREEN_BOTH) == FULLSCREEN_BOTH)
+        {
+          ChangeWindowAttributes (FRAME_MAC_WINDOW (f), 
+                                  FNS_kWindowNoTitleBarAttribute,
+                                  kWindowResizableAttribute);
+          if (mac_autohide_menubar_on_fullscreen && display == main_display)
+            SetSystemUIMode (kUIModeAllHidden, kUIOptionAutoShowMenuBar);
+        }
+      else
+        {
+          ChangeWindowAttributes (FRAME_MAC_WINDOW (f), 
+                                  kWindowResizableAttribute, 
+                                  FNS_kWindowNoTitleBarAttribute);
+          if (f->want_fullscreen & FULLSCREEN_BOTH)
+            ChangeWindowAttributes (FRAME_MAC_WINDOW (f),
+                                    0, kWindowResizableAttribute);
+          SetSystemUIMode (kUIModeNormal, 0);
+        }
+
+      /* Update the saved state. */
+      int tmp;
+#define SWAP(a, b) tmp = a, a = b, b = tmp
+      if ((f->want_fullscreen ^ s->mode) & FULLSCREEN_WIDTH)
+        SWAP (b.left, s->left), SWAP (b.right, s->right);
+      if ((f->want_fullscreen ^ s->mode) & FULLSCREEN_HEIGHT)
+        SWAP (b.top, s->top), SWAP (b.bottom, s->bottom);
+#undef SWAP
+      s->mode = f->want_fullscreen;
+      save_fullscreen_state (f, s);
+      xfree (s);
+
+      CGRect screen_bounds = CGDisplayBounds (display);
+      if (f->want_fullscreen & FULLSCREEN_HEIGHT)
+        {
+           b.top = (short)screen_bounds.origin.y;
+           b.bottom = b.top + (short)screen_bounds.size.height;
+	   if (display == main_display)
+	     b.top += GetMBarHeight();
+        }
+      if (f->want_fullscreen & FULLSCREEN_WIDTH)
+        {
+           b.left = (short)screen_bounds.origin.x;
+           b.right = b.left + (short)screen_bounds.size.width;
+        }
+
+      SetWindowBounds(FRAME_MAC_WINDOW (f), kWindowStructureRgn, &b);
+
+      /* Necessary because x_set_offset and x_set_window_size refuse
+         to change the offset and size of a full-screen frame. */
+      st = GetWindowBounds(FRAME_MAC_WINDOW (f), kWindowContentRgn, &b);
+      if (st == noErr)
+        {
+          mac_handle_size_change (f, b.right - b.left, b.bottom - b.top);
+          mac_handle_origin_change (f);
+        }
+
+      if (f->want_fullscreen & FULLSCREEN_BOTH)
+           CGDisplayRegisterReconfigurationCallback 
+                (mac_handle_display_reconfiguration, f);
+      else
+           CGDisplayRemoveReconfigurationCallback
+                (mac_handle_display_reconfiguration, f);
+
+      UNBLOCK_INPUT;
+      do_pending_window_change(0);
+    }
+}
 
 
 /* Set up use of X before we make the first connection.  */
@@ -9504,6 +9865,7 @@ mac_initialize ()
   condemn_scroll_bars_hook = XTcondemn_scroll_bars;
   redeem_scroll_bar_hook = XTredeem_scroll_bar;
   judge_scroll_bars_hook = XTjudge_scroll_bars;
+  fullscreen_hook = mac_fullscreen_hook;
 
   scroll_region_ok = 1;         /* we'll scroll partial frames */
   char_ins_del_ok = 1;
@@ -9606,6 +9968,9 @@ syms_of_macterm ()
   staticpro (&Qreverse);
   Qreverse = intern ("reverse");
 
+  staticpro (&Qfullscreen_saved_state);
+  Qfullscreen_saved_state = intern ("fullscreen-saved-state");
+
   staticpro (&x_display_name_list);
   x_display_name_list = Qnil;
 
@@ -9691,15 +10056,26 @@ unexpected results for some keys on non-US/GB keyboards.  */);
   DEFVAR_LISP ("mac-emulate-three-button-mouse",
 	       &Vmac_emulate_three_button_mouse,
     doc: /* *Specify a way of three button mouse emulation.
-The value can be nil, t, or the symbol `reverse'.
+The value can be nil, t,  or one of the symbols `reverse' or `control'. 
 A value of nil means that no emulation should be done and the modifiers
 should be placed on the mouse-1 event.
 t means that when the option-key is held down while pressing the mouse
 button, the click will register as mouse-2 and while the command-key
 is held down, the click will register as mouse-3.
 The symbol `reverse' means that the option-key will register for
-mouse-3 and the command-key will register for mouse-2.  */);
+mouse-3 and the command-key will register for mouse-2.  
+The symbol  `control' means that a click with the control-key held down 
+will register as mouse-3, and command-click will register as mouse-2.  */);
   Vmac_emulate_three_button_mouse = Qnil;
+
+#if USE_MAC_TOOLBAR
+  DEFVAR_LISP ("mac-tool-bar-display-mode", &Vmac_tool_bar_display_mode,
+    doc: /* *Specify whether to display the tool bar as icons with labels.
+The value can be `icons' (for icons only), `labels' (for labels),
+`both' (for icons with labels) and nil, in which case the system default 
+is assumed.  The default is nil.  */);
+  Vmac_tool_bar_display_mode = Qnil;
+#endif
 
 #if TARGET_API_MAC_CARBON
   DEFVAR_BOOL ("mac-wheel-button-is-mouse-2", &mac_wheel_button_is_mouse_2,
@@ -9743,6 +10119,11 @@ CODING_SYSTEM is a coding system corresponding to TEXT-ENCODING.  */);
   Vmac_charset_info_alist =
     Fcons (list3 (build_string ("mac-roman"),
 		  make_number (smRoman), Qnil), Qnil);
+
+  DEFVAR_BOOL ("mac-autohide-menubar-on-fullscreen", &mac_autohide_menubar_on_fullscreen,
+	       doc: /* Non-nil means auto-hide the menubar when a frame's fullscreen parameter is 'fullboth. */);
+  mac_autohide_menubar_on_fullscreen = 1;
+
 
 #if USE_MAC_TSM
   DEFVAR_LISP ("mac-ts-active-input-overlay", &Vmac_ts_active_input_overlay,

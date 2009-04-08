@@ -341,9 +341,16 @@ extern Lisp_Object Voverflow_newline_into_fringe;
   (!NILP (Voverflow_newline_into_fringe)	\
    && FRAME_WINDOW_P (it->f)			\
    && WINDOW_RIGHT_FRINGE_WIDTH (it->w) > 0	\
-   && it->current_x == it->last_visible_x)
+   && it->current_x == it->last_visible_x	\
+   && it->line_wrap != WORD_WRAP)
 
 #endif /* HAVE_WINDOW_SYSTEM */
+
+/* Test if the display element loaded in IT is a space or tab
+   character.  This is used to determine word wrapping.  */
+
+#define IT_DISPLAYING_WHITESPACE(it)				\
+  (it->what == IT_CHARACTER && (it->c == ' ' || it->c == '\t'))
 
 /* Non-nil means show the text cursor in void text areas
    i.e. in blank areas after eol and eob.  This used to be
@@ -418,7 +425,7 @@ static struct buffer *this_line_buffer;
 /* Nonzero means truncate lines in all windows less wide than the
    frame.  */
 
-int truncate_partial_width_windows;
+Lisp_Object Vtruncate_partial_width_windows;
 
 /* A flag to control how to display unibyte 8-bit character.  */
 
@@ -2472,6 +2479,7 @@ init_iterator (it, w, charpos, bytepos, row, base_face_id)
      enum face_id base_face_id;
 {
   int highlight_region_p;
+  enum face_id remapped_base_face_id = base_face_id;
 
   /* Some precondition checks.  */
   xassert (w != NULL && it != NULL);
@@ -2488,6 +2496,10 @@ init_iterator (it, w, charpos, bytepos, row, base_face_id)
       free_all_realized_faces (Qnil);
     }
 
+  /* Perhaps remap BASE_FACE_ID to a user-specified alternative.  */
+  if (! NILP (Vface_remapping_alist))
+    remapped_base_face_id = lookup_basic_face (XFRAME (w->frame), base_face_id);
+
   /* Use one of the mode line rows of W's desired matrix if
      appropriate.  */
   if (row == NULL)
@@ -2503,7 +2515,7 @@ init_iterator (it, w, charpos, bytepos, row, base_face_id)
   bzero (it, sizeof *it);
   it->current.overlay_string_index = -1;
   it->current.dpvec_index = -1;
-  it->base_face_id = base_face_id;
+  it->base_face_id = remapped_base_face_id;
   it->string = Qnil;
   IT_STRING_CHARPOS (*it) = IT_STRING_BYTEPOS (*it) = -1;
 
@@ -2603,19 +2615,27 @@ init_iterator (it, w, charpos, bytepos, row, base_face_id)
     it->tab_width = 8;
 
   /* Are lines in the display truncated?  */
-  it->truncate_lines_p
-    = (base_face_id != DEFAULT_FACE_ID
-       || XINT (it->w->hscroll)
-       || (truncate_partial_width_windows
-	   && !WINDOW_FULL_WIDTH_P (it->w))
-       || !NILP (current_buffer->truncate_lines));
+  if (base_face_id != DEFAULT_FACE_ID
+      || XINT (it->w->hscroll)
+      || (! WINDOW_FULL_WIDTH_P (it->w)
+	  && ((!NILP (Vtruncate_partial_width_windows)
+	       && !INTEGERP (Vtruncate_partial_width_windows))
+	      || (INTEGERP (Vtruncate_partial_width_windows)
+		  && (WINDOW_TOTAL_COLS (it->w)
+		      < XINT (Vtruncate_partial_width_windows))))))
+    it->line_wrap = TRUNCATE;
+  else if (NILP (current_buffer->truncate_lines))
+    it->line_wrap = NILP (current_buffer->word_wrap)
+      ? WINDOW_WRAP : WORD_WRAP;
+  else
+    it->line_wrap = TRUNCATE;
 
   /* Get dimensions of truncation and continuation glyphs.  These are
      displayed as fringe bitmaps under X, so we don't need them for such
      frames.  */
   if (!FRAME_WINDOW_P (it->f))
     {
-      if (it->truncate_lines_p)
+      if (it->line_wrap == TRUNCATE)
 	{
 	  /* We will need the truncation glyph.  */
 	  xassert (it->glyph_row == NULL);
@@ -2665,7 +2685,7 @@ init_iterator (it, w, charpos, bytepos, row, base_face_id)
 	 for window-based redisplay.  */
       if (!FRAME_WINDOW_P (it->f))
 	{
-	  if (it->truncate_lines_p)
+	  if (it->line_wrap == TRUNCATE)
 	    it->last_visible_x -= it->truncation_pixel_width;
 	  else
 	    it->last_visible_x -= it->continuation_pixel_width;
@@ -2688,11 +2708,11 @@ init_iterator (it, w, charpos, bytepos, row, base_face_id)
     {
       struct face *face;
 
-      it->face_id = base_face_id;
+      it->face_id = remapped_base_face_id;
 
       /* If we have a boxed mode line, make the first character appear
 	 with a left box line.  */
-      face = FACE_FROM_ID (it->f, base_face_id);
+      face = FACE_FROM_ID (it->f, remapped_base_face_id);
       if (face->box != FACE_NO_BOX)
 	it->start_of_box_run_p = 1;
     }
@@ -2738,7 +2758,7 @@ start_display (it, w, pos)
 
   /* Don't reseat to previous visible line start if current start
      position is in a string or image.  */
-  if (it->method == GET_FROM_BUFFER && !it->truncate_lines_p)
+  if (it->method == GET_FROM_BUFFER && it->line_wrap != TRUNCATE)
     {
       int start_at_line_beg_p;
       int first_y = it->current_y;
@@ -2763,7 +2783,7 @@ start_display (it, w, pos)
 	     taken us to the start of the continuation line but to the
 	     end of the continued line.  */
 	  if (it->current_x > 0
-	      && !it->truncate_lines_p /* Lines are continued.  */
+	      && it->line_wrap != TRUNCATE /* Lines are continued.  */
 	      && (/* And glyph doesn't fit on the line.  */
 		  new_x > it->last_visible_x
 		  /* Or it fits exactly and we're on a window
@@ -4056,7 +4076,8 @@ handle_single_display_spec (it, spec, object, overlay, position,
 	      /* Value is a multiple of the canonical char height.  */
 	      struct face *face;
 
-	      face = FACE_FROM_ID (it->f, DEFAULT_FACE_ID);
+	      face = FACE_FROM_ID (it->f,
+				   lookup_basic_face (it->f, DEFAULT_FACE_ID));
 	      new_height = (XFLOATINT (it->font_height)
 			    * XINT (face->lface[LFACE_HEIGHT_INDEX]));
 	    }
@@ -4166,7 +4187,7 @@ handle_single_display_spec (it, spec, object, overlay, position,
 	  || EQ (XCAR (spec), Qright_fringe))
       && CONSP (XCDR (spec)))
     {
-      int face_id = DEFAULT_FACE_ID;
+      int face_id = lookup_basic_face (it->f, DEFAULT_FACE_ID);
       int fringe_bitmap;
 
       if (FRAME_TERMCAP_P (it->f) || FRAME_MSDOS_P (it->f))
@@ -5278,6 +5299,7 @@ back_to_previous_visible_line_start (it)
 	pos = --IT_CHARPOS (it2);
 	--IT_BYTEPOS (it2);
 	it2.sp = 0;
+	it2.string_from_display_prop_p = 0;
 	if (handle_display_prop (&it2) == HANDLED_RETURN
 	    && !NILP (val = get_char_property_and_overlay
 		      (make_number (pos), Qdisplay, Qnil, &overlay))
@@ -5428,6 +5450,7 @@ reseat_1 (it, pos, set_stop_p)
   IT_STRING_CHARPOS (*it) = -1;
   IT_STRING_BYTEPOS (*it) = -1;
   it->string = Qnil;
+  it->string_from_display_prop_p = 0;
   it->method = GET_FROM_BUFFER;
   it->object = it->w->buffer;
   it->area = TEXT_AREA;
@@ -6488,10 +6511,22 @@ move_it_in_display_line_to (it, to_charpos, to_x, op)
 {
   enum move_it_result result = MOVE_UNDEFINED;
   struct glyph_row *saved_glyph_row;
+  struct it wrap_it, atpos_it, atx_it;
+  int may_wrap = 0;
 
   /* Don't produce glyphs in produce_glyphs.  */
   saved_glyph_row = it->glyph_row;
   it->glyph_row = NULL;
+
+   /* Use wrap_it to save a copy of IT wherever a word wrap could
+      occur.  Use atpos_it to save a copy of IT at the desired buffer
+      position, if found, so that we can scan ahead and check if the
+      word later overshoots the window edge.  Use atx_it similarly, for
+      pixel positions.  */
+   wrap_it.sp = -1;
+   atpos_it.sp = -1;
+   atx_it.sp = -1;
+  
 
 #define BUFFER_POS_REACHED_P()					\
   ((op & MOVE_TO_POS) != 0					\
@@ -6506,41 +6541,88 @@ move_it_in_display_line_to (it, to_charpos, to_x, op)
     {
       int x, i, ascent = 0, descent = 0;
 
-      /* Stop if we move beyond TO_CHARPOS (after an image or stretch glyph).  */
+      /* Utility macro to reset an iterator with x, ascent, and descent.  */
+#define IT_RESET_X_ASCENT_DESCENT(IT)			\
+      ((IT)->current_x = x, (IT)->max_ascent = ascent,	\
+       (IT)->max_descent = descent)
+      
+      /* Stop if we move beyond TO_CHARPOS (after an image or stretch
+	 glyph).  */
       if ((op & MOVE_TO_POS) != 0
 	  && BUFFERP (it->object)
 	  && it->method == GET_FROM_BUFFER
 	  && IT_CHARPOS (*it) > to_charpos)
 	{
-	  result = MOVE_POS_MATCH_OR_ZV;
-	  break;
+	  if (it->line_wrap != WORD_WRAP || wrap_it.sp < 0)
+	    {
+	      result = MOVE_POS_MATCH_OR_ZV;
+	      break;
+	    }
+	  else if (it->line_wrap == WORD_WRAP && atpos_it.sp < 0)
+	    /* If wrap_it is valid, the current position might be in a
+	       word that is wrapped.  So, save the iterator in
+	       atpos_it and continue to see if wrapping happens.  */
+	    atpos_it = *it;
 	}
 
       /* Stop when ZV reached.
          We used to stop here when TO_CHARPOS reached as well, but that is
          too soon if this glyph does not fit on this line.  So we handle it
          explicitly below.  */
-      if (!get_next_display_element (it)
-	  || (it->truncate_lines_p
-	      && BUFFER_POS_REACHED_P ()))
+      if (!get_next_display_element (it))
 	{
 	  result = MOVE_POS_MATCH_OR_ZV;
 	  break;
 	}
 
-      /* The call to produce_glyphs will get the metrics of the
-	 display element IT is loaded with.  We record in x the
-	 x-position before this display element in case it does not
-	 fit on the line.  */
-      x = it->current_x;
-
-      /* Remember the line height so far in case the next element doesn't
-	 fit on the line.  */
-      if (!it->truncate_lines_p)
+      if (it->line_wrap == TRUNCATE)
 	{
-	  ascent = it->max_ascent;
-	  descent = it->max_descent;
+	  if (BUFFER_POS_REACHED_P ())
+	    {
+	      result = MOVE_POS_MATCH_OR_ZV;
+	      break;
+	    }
 	}
+      else
+	{
+
+	  if (it->line_wrap == WORD_WRAP)
+	    {
+	      if (IT_DISPLAYING_WHITESPACE (it))
+		may_wrap = 1;
+	      else if (may_wrap)
+		{
+		  /* We have reached a glyph that follows one or more
+		     whitespace characters.  If the position is
+		     already found, we are done.  */
+		  if (atpos_it.sp >= 0)
+		    {
+		      *it = atpos_it;
+		      result = MOVE_POS_MATCH_OR_ZV;
+		      goto done;
+		    }
+		  if (atx_it.sp >= 0)
+		    {
+		      *it = atx_it;
+		      result = MOVE_X_REACHED;
+		      goto done;
+		    }
+		  /* Otherwise, we can wrap here.  */
+		  wrap_it = *it;
+		  may_wrap = 0;
+		}
+	    }
+	}
+      /* Remember the line height for the current line, in case
+	 the next element doesn't fit on the line.  */
+      ascent = it->max_ascent;
+      descent = it->max_descent;
+
+      /* The call to produce_glyphs will get the metrics of the
+	 display element IT is loaded with.  Record the x-position
+	 before this display element, in case it doesn't fit on the
+	 line.  */
+      x = it->current_x;
 
       PRODUCE_GLYPHS (it);
 
@@ -6581,29 +6663,49 @@ move_it_in_display_line_to (it, to_charpos, to_x, op)
 	    {
 	      new_x = x + single_glyph_width;
 
-	      /* We want to leave anything reaching TO_X to the caller.  */
-	      if ((op & MOVE_TO_X) && new_x > to_x)
-		{
-		  if (BUFFER_POS_REACHED_P ())
-		    goto buffer_pos_reached;
-		  it->current_x = x;
-		  result = MOVE_X_REACHED;
-		  break;
-		}
-	      else if (/* Lines are continued.  */
-		       !it->truncate_lines_p
-		       && (/* And glyph doesn't fit on the line.  */
-			   new_x > it->last_visible_x
-			   /* Or it fits exactly and we're on a window
-			      system frame.  */
-			   || (new_x == it->last_visible_x
-			       && FRAME_WINDOW_P (it->f))))
-		{
+        /* We want to leave anything reaching TO_X to the caller.  */
+        if ((op & MOVE_TO_X) && new_x > to_x)
+	  {
+	    if (BUFFER_POS_REACHED_P ())
+	      {
+		if (it->line_wrap != WORD_WRAP || wrap_it.sp < 0)
+		  goto buffer_pos_reached;
+		if (atpos_it.sp < 0)
+		  {
+		    atpos_it = *it;
+		    IT_RESET_X_ASCENT_DESCENT (&atpos_it);
+		  }
+	      }
+	    else
+	      {
+		if (it->line_wrap != WORD_WRAP || wrap_it.sp < 0)
+		  {
+		    it->current_x = x;
+		    result = MOVE_X_REACHED;
+		    break;
+		  }
+		if (atx_it.sp < 0)
+		  {
+		    atx_it = *it;
+		    IT_RESET_X_ASCENT_DESCENT (&atx_it);
+		  }
+	      }
+	  }
+  
+        if (/* Lines are continued.  */
+		  it->line_wrap != TRUNCATE
+		  && (/* And glyph doesn't fit on the line.  */
+		      new_x > it->last_visible_x
+		      /* Or it fits exactly and we're on a window
+			 system frame.  */
+		      || (new_x == it->last_visible_x
+ 			  && FRAME_WINDOW_P (it->f))))		
+	  {
 		  if (/* IT->hpos == 0 means the very first glyph
 			 doesn't fit on the line, e.g. a wide image.  */
 		      it->hpos == 0
 		      || (new_x == it->last_visible_x
-			  && FRAME_WINDOW_P (it->f)))
+ 			  && FRAME_WINDOW_P (it->f)))
 		    {
 		      ++it->hpos;
 		      it->current_x = new_x;
@@ -6617,10 +6719,21 @@ move_it_in_display_line_to (it, to_charpos, to_x, op)
 			     now that we know it fits in this row.  */
 			  if (BUFFER_POS_REACHED_P ())
 			    {
-			      it->hpos = hpos_before_this_char;
-			      it->current_x = x_before_this_char;
-			      result = MOVE_POS_MATCH_OR_ZV;
-			      break;
+			      if (it->line_wrap != WORD_WRAP
+				  || wrap_it.sp < 0)
+				{
+				  it->hpos = hpos_before_this_char;
+				  it->current_x = x_before_this_char;
+				  result = MOVE_POS_MATCH_OR_ZV;
+				  break;
+				}
+			      if (it->line_wrap == WORD_WRAP
+				  && atpos_it.sp < 0)
+				{
+				  atpos_it = *it;
+				  atpos_it.current_x = x_before_this_char;
+				  atpos_it.hpos = hpos_before_this_char;
+				}
 			    }
 
 			  set_iterator_to_next (it, 1);
@@ -6650,10 +6763,13 @@ move_it_in_display_line_to (it, to_charpos, to_x, op)
 			}
 		    }
 		  else
+		    IT_RESET_X_ASCENT_DESCENT (it);
+
+		  if (wrap_it.sp >= 0)
 		    {
-		      it->current_x = x;
-		      it->max_ascent = ascent;
-		      it->max_descent = descent;
+		      *it = wrap_it;
+		      atpos_it.sp = -1;
+		      atx_it.sp = -1;
 		    }
 
 		  TRACE_MOVE ((stderr, "move_it_in: continued at %d\n",
@@ -6661,18 +6777,23 @@ move_it_in_display_line_to (it, to_charpos, to_x, op)
 		  result = MOVE_LINE_CONTINUED;
 		  break;
 		}
-	      else if (BUFFER_POS_REACHED_P ())
-		goto buffer_pos_reached;
-	      else if (new_x > it->first_visible_x)
+
+	      if (BUFFER_POS_REACHED_P ())
+		{
+		  if (it->line_wrap != WORD_WRAP || wrap_it.sp < 0)
+		    goto buffer_pos_reached;
+		  if (it->line_wrap == WORD_WRAP && atpos_it.sp < 0)
+		    {
+		      atpos_it = *it;
+		      IT_RESET_X_ASCENT_DESCENT (&atpos_it);
+		    }
+		}
+
+	      if (new_x > it->first_visible_x)
 		{
 		  /* Glyph is visible.  Increment number of glyphs that
 		     would be displayed.  */
 		  ++it->hpos;
-		}
-	      else
-		{
-		  /* Glyph is completely off the left margin of the display
-		     area.  Nothing to do.  */
 		}
 	    }
 
@@ -6682,9 +6803,7 @@ move_it_in_display_line_to (it, to_charpos, to_x, op)
       else if (BUFFER_POS_REACHED_P ())
 	{
 	buffer_pos_reached:
-	  it->current_x = x;
-	  it->max_ascent = ascent;
-	  it->max_descent = descent;
+	  IT_RESET_X_ASCENT_DESCENT (it);
 	  result = MOVE_POS_MATCH_OR_ZV;
 	  break;
 	}
@@ -6712,7 +6831,7 @@ move_it_in_display_line_to (it, to_charpos, to_x, op)
 
       /* Stop if lines are truncated and IT's current x-position is
 	 past the right edge of the window now.  */
-      if (it->truncate_lines_p
+      if (it->line_wrap == TRUNCATE
 	  && it->current_x >= it->last_visible_x)
 	{
 #ifdef HAVE_WINDOW_SYSTEM
@@ -6734,14 +6853,33 @@ move_it_in_display_line_to (it, to_charpos, to_x, op)
 	  result = MOVE_LINE_TRUNCATED;
 	  break;
 	}
+#undef IT_RESET_X_ASCENT_DESCENT
     }
 
 #undef BUFFER_POS_REACHED_P
 
+  /* If we scanned beyond to_pos and didn't find a point to wrap at,
+     restore the saved iterator.  */
+  if (atpos_it.sp >= 0)
+     *it = atpos_it;
+   else if (atx_it.sp >= 0)
+     *it = atx_it;
+ 
+ done:
   /* Restore the iterator settings altered at the beginning of this
      function.  */
   it->glyph_row = saved_glyph_row;
   return result;
+}
+
+
+/* For external use.  */
+void
+move_it_in_display_line (struct it *it,
+			 EMACS_INT to_charpos, int to_x,
+			 enum move_operation_enum op)
+{
+  move_it_in_display_line_to (it, to_charpos, to_x, op);
 }
 
 
@@ -6816,6 +6954,9 @@ move_it_to (it, to_charpos, to_x, to_y, to_vpos, op)
 	{
 	  struct it it_backup;
 
+	  if (it->line_wrap == WORD_WRAP)
+	    it_backup = *it;
+
 	  /* TO_Y specified means stop at TO_X in the line containing
 	     TO_Y---or at TO_CHARPOS if this is reached first.  The
 	     problem is that we can't really tell whether the line
@@ -6828,51 +6969,66 @@ move_it_to (it, to_charpos, to_x, to_y, to_vpos, op)
 	     If we didn't use TO_X == 0, we would stop at the end of
 	     the line which is probably not what a caller would expect
 	     to happen.  */
-	  skip = move_it_in_display_line_to (it, to_charpos,
-					     ((op & MOVE_TO_X)
-					      ? to_x : 0),
-					     (MOVE_TO_X
-					      | (op & MOVE_TO_POS)));
+	  skip = move_it_in_display_line_to
+	    (it, to_charpos, ((op & MOVE_TO_X) ? to_x : 0),
+	     (MOVE_TO_X | (op & MOVE_TO_POS)));
 
 	  /* If TO_CHARPOS is reached or ZV, we don't have to do more.  */
 	  if (skip == MOVE_POS_MATCH_OR_ZV)
+	    reached = 5;
+	  else if (skip == MOVE_X_REACHED)
 	    {
-	      reached = 5;
-	      break;
-	    }
-
-	  /* If TO_X was reached, we would like to know whether TO_Y
+	     /* If TO_X was reached, we would like to know whether TO_Y
 	     is in the line.  This can only be said if we know the
 	     total line height which requires us to scan the rest of
 	     the line.  */
-	  if (skip == MOVE_X_REACHED)
-	    {
 	      it_backup = *it;
 	      TRACE_MOVE ((stderr, "move_it: from %d\n", IT_CHARPOS (*it)));
 	      skip2 = move_it_in_display_line_to (it, to_charpos, -1,
 						  op & MOVE_TO_POS);
 	      TRACE_MOVE ((stderr, "move_it: to %d\n", IT_CHARPOS (*it)));
-	    }
+	      line_height = it->max_ascent + it->max_descent;
+	      TRACE_MOVE ((stderr, "move_it: line_height = %d\n", line_height));
 
-	  /* Now, decide whether TO_Y is in this line.  */
-	  line_height = it->max_ascent + it->max_descent;
-	  TRACE_MOVE ((stderr, "move_it: line_height = %d\n", line_height));
-
-	  if (to_y >= it->current_y
-	      && to_y < it->current_y + line_height)
-	    {
-	      if (skip == MOVE_X_REACHED)
-		/* If TO_Y is in this line and TO_X was reached above,
-		   we scanned too far.  We have to restore IT's settings
-		   to the ones before skipping.  */
-		*it = it_backup;
-	      reached = 6;
+	      if (to_y >= it->current_y
+		  && to_y < it->current_y + line_height)
+		{
+		  /* If TO_Y is in this line and TO_X was reached
+		     above, we scanned too far.  We have to restore
+		     IT's settings to the ones before skipping.  */
+		  *it = it_backup;
+		  reached = 6;
+		}
+	      else
+		{
+		  skip = skip2;
+		  if (skip == MOVE_POS_MATCH_OR_ZV)
+		    reached = 7;
+		}
 	    }
-	  else if (skip == MOVE_X_REACHED)
+	  else
 	    {
-	      skip = skip2;
-	      if (skip == MOVE_POS_MATCH_OR_ZV)
-		reached = 7;
+	      /* Check whether TO_Y is in this line.  */
+	      line_height = it->max_ascent + it->max_descent;
+	      TRACE_MOVE ((stderr, "move_it: line_height = %d\n", line_height));
+
+	      if (to_y >= it->current_y
+		  && to_y < it->current_y + line_height)
+		{
+		  /* When word-wrap is on, TO_X may lie past the end
+		     of a wrapped line.  Then it->current is the
+		     character on the next line, so backtrack to the
+		     space before the wrap point.  */
+		  if (skip == MOVE_LINE_CONTINUED
+		      && it->line_wrap == WORD_WRAP)
+		    {
+		      int prev_x = max (it->current_x - 1, 0);
+		      *it = it_backup;
+		      skip = move_it_in_display_line_to
+			(it, -1, prev_x, MOVE_TO_X);
+		    }
+		  reached = 6;
+		}
 	    }
 
 	  if (reached)
@@ -6942,7 +7098,7 @@ move_it_to (it, to_charpos, to_x, to_y, to_vpos, op)
       && IT_CHARPOS (*it) == to_charpos
       && it->what == IT_CHARACTER
       && it->nglyphs > 1
-      && !it->truncate_lines_p
+      && it->line_wrap != TRUNCATE
       && it->current_x == it->last_visible_x - 1
       && it->c != '\n'
       && it->c != '\t'
@@ -7955,6 +8111,7 @@ ensure_echo_area_buffers ()
 	sprintf (name, " *Echo Area %d*", i);
 	echo_buffer[i] = Fget_buffer_create (build_string (name));
 	XBUFFER (echo_buffer[i])->truncate_lines = Qnil;
+	XBUFFER (echo_buffer[i])->word_wrap = Qt; /*seems to lead to hang during redraw. FIXME: why?*/
 
 	for (j = 0; j < 2; ++j)
 	  if (EQ (old_buffer, echo_area_buffer[j]))
@@ -8389,7 +8546,7 @@ resize_mini_window (w, exact_p)
       max_height = min (total_height, max_height);
 
       /* Find out the height of the text in the window.  */
-      if (it.truncate_lines_p)
+      if (it.line_wrap == TRUNCATE)
 	height = 1;
       else
 	{
@@ -14210,9 +14367,10 @@ find_last_unchanged_at_beg_row (w)
   int yb = window_text_bottom_y (w);
 
   /* Find the last row displaying unchanged text.  */
-  row = MATRIX_FIRST_TEXT_ROW (w->current_matrix);
-  while (MATRIX_ROW_DISPLAYS_TEXT_P (row)
-	 && MATRIX_ROW_START_CHARPOS (row) < first_changed_pos)
+  for (row = MATRIX_FIRST_TEXT_ROW (w->current_matrix);
+       MATRIX_ROW_DISPLAYS_TEXT_P (row)
+	 && MATRIX_ROW_START_CHARPOS (row) < first_changed_pos;
+       ++row)
     {
       if (/* If row ends before first_changed_pos, it is unchanged,
 	     except in some case.  */
@@ -14229,10 +14387,8 @@ find_last_unchanged_at_beg_row (w)
 	row_found = row;
 
       /* Stop if last visible row.  */
-     if (MATRIX_ROW_BOTTOM_Y (row) >= yb)
+      if (MATRIX_ROW_BOTTOM_Y (row) >= yb)
 	break;
-
-      ++row;
     }
 
   return row_found;
@@ -14418,7 +14574,6 @@ row_containing_pos (w, charpos, start, end, dy)
     }
 }
 
-
 /* Try to redisplay window W by reusing its existing display.  W's
    current matrix must be up to date when this function is called,
    i.e. window_end_valid must not be nil.
@@ -14550,6 +14705,12 @@ try_window_id (w)
   if (overlay_arrows_changed_p ())
     GIVE_UP (12);
 
+  /* When word-wrap is on, adding a space to the first word of a
+     wrapped line can change the wrap position, altering the line
+     above it.  It might be worthwhile to handle this more
+     intelligently, but for now just redisplay from scratch.  */
+  if (!NILP (XBUFFER (w->buffer)->word_wrap))
+    GIVE_UP (21);
 
   /* Make sure beg_unchanged and end_unchanged are up to date.  Do it
      only if buffer has really changed.  The reason is that the gap is
@@ -15759,7 +15920,7 @@ append_space_for_newline (it, default_face_p)
 	  it->len = 1;
 
 	  if (default_face_p)
-	    it->face_id = DEFAULT_FACE_ID;
+	    it->face_id = lookup_basic_face (it->f, DEFAULT_FACE_ID); 
 	  else if (it->face_before_selective_p)
 	    it->face_id = it->saved_face_id;
 	  face = FACE_FROM_ID (it->f, it->face_id);
@@ -16027,6 +16188,11 @@ display_line (it)
 {
   struct glyph_row *row = it->glyph_row;
   Lisp_Object overlay_arrow_string;
+  struct it wrap_it;
+  int may_wrap = 0, wrap_x;
+  int wrap_row_used = -1, wrap_row_ascent, wrap_row_height;
+  int wrap_row_phys_ascent, wrap_row_phys_height;
+  int wrap_row_extra_line_spacing;
 
   /* We always start displaying at hpos zero even if hscrolled.  */
   xassert (it->hpos == 0 && it->current_x == 0);
@@ -16121,12 +16287,30 @@ display_line (it)
 
       /* Remember the line height so far in case the next element doesn't
 	 fit on the line.  */
-      if (!it->truncate_lines_p)
+      if (it->line_wrap != TRUNCATE)
 	{
 	  ascent = it->max_ascent;
 	  descent = it->max_descent;
 	  phys_ascent = it->max_phys_ascent;
 	  phys_descent = it->max_phys_descent;
+
+	  if (it->line_wrap == WORD_WRAP && it->area == TEXT_AREA)
+	    {
+	      if (IT_DISPLAYING_WHITESPACE (it))
+		may_wrap = 1;
+	      else if (may_wrap)
+		{
+		  wrap_it = *it;
+		  wrap_x = x;
+		  wrap_row_used = row->used[TEXT_AREA];
+		  wrap_row_ascent = row->ascent;
+		  wrap_row_height = row->height;
+		  wrap_row_phys_ascent = row->phys_ascent;
+		  wrap_row_phys_height = row->phys_height;
+		  wrap_row_extra_line_spacing = row->extra_line_spacing;
+		  may_wrap = 0;
+		}
+	    }
 	}
 
       PRODUCE_GLYPHS (it);
@@ -16186,7 +16370,7 @@ display_line (it)
 	      new_x = x + glyph->pixel_width;
 
 	      if (/* Lines are continued.  */
-		  !it->truncate_lines_p
+		  it->line_wrap != TRUNCATE
 		  && (/* Glyph doesn't fit on the line.  */
 		      new_x > it->last_visible_x
 		      /* Or it fits exactly on a window system frame.  */
@@ -16209,6 +16393,18 @@ display_line (it)
 		      ++it->hpos;
 		      if (i == nglyphs - 1)
 			{
+			  /* If line-wrap is on, check if a previous
+			     wrap point was found.  */
+			  if (wrap_row_used > 0
+			      /* Even if there is a previous wrap
+				 point, continue the line here as
+				 usual, if (i) the previous character
+				 was a space or tab AND (ii) the
+				 current character is not.  */
+			      && (!may_wrap
+				  || IT_DISPLAYING_WHITESPACE (it)))
+			    goto back_to_wrap;
+
 			  set_iterator_to_next (it, 1);
 #ifdef HAVE_WINDOW_SYSTEM
 			  if (IT_OVERFLOW_NEWLINE_INTO_FRINGE (it))
@@ -16253,6 +16449,26 @@ display_line (it)
 		      it->max_descent = descent;
 		      it->max_phys_ascent = phys_ascent;
 		      it->max_phys_descent = phys_descent;
+		    }
+		  else if (wrap_row_used > 0)
+		    {
+		    back_to_wrap:
+		      *it = wrap_it;
+		      it->continuation_lines_width += wrap_x;
+		      row->used[TEXT_AREA] = wrap_row_used;
+		      row->ascent = wrap_row_ascent;
+		      row->height = wrap_row_height;
+		      row->phys_ascent = wrap_row_phys_ascent;
+		      row->phys_height = wrap_row_phys_height;
+		      row->extra_line_spacing = wrap_row_extra_line_spacing;
+		      row->continued_p = 1;
+		      row->ends_at_zv_p = 0;
+		      row->exact_window_width_line_p = 0;
+		      it->continuation_lines_width += x;
+
+		      /* Make sure that a non-default face is extended
+			 up to the right margin of the window.  */
+		      extend_face_to_end_of_line (it);
 		    }
 		  else if (it->c == '\t' && FRAME_WINDOW_P (it->f))
 		    {
@@ -16369,7 +16585,7 @@ display_line (it)
 
       /* If we truncate lines, we are done when the last displayed
 	 glyphs reach past the right margin of the window.  */
-      if (it->truncate_lines_p
+      if (it->line_wrap == TRUNCATE
 	  && (FRAME_WINDOW_P (it->f)
 	      ? (it->current_x >= it->last_visible_x)
 	      : (it->current_x > it->last_visible_x)))
@@ -18378,7 +18594,7 @@ display_string (string, lisp_string, face_string, face_string_pos,
 	{
 	  struct glyph *glyph = row->glyphs[TEXT_AREA] + n_glyphs_before + i;
 
-	  if (!it->truncate_lines_p
+	  if (it->line_wrap != TRUNCATE
 	      && x + glyph->pixel_width > max_x)
 	    {
 	      /* End of continued line or max_x reached.  */
@@ -18434,7 +18650,7 @@ display_string (string, lisp_string, face_string, face_string_pos,
       set_iterator_to_next (it, 1);
 
       /* Stop if truncating at the right edge.  */
-      if (it->truncate_lines_p
+      if (it->line_wrap == TRUNCATE
 	  && it->current_x >= it->last_visible_x)
 	{
 	  /* Add truncation mark, but don't do it if the line is
@@ -20297,7 +20513,7 @@ produce_stretch_glyph (it)
   else
     ascent = (height * FONT_BASE (font)) / FONT_HEIGHT (font);
 
-  if (width > 0 && !it->truncate_lines_p
+  if (width > 0 && it->line_wrap != TRUNCATE
       && it->current_x + width > it->last_visible_x)
     width = it->last_visible_x - it->current_x - 1;
 
@@ -20709,14 +20925,14 @@ x_produce_glyphs (it)
 	}
       else if (it->char_to_display == '\t')
 	{
-	  int tab_width = it->tab_width * FRAME_SPACE_WIDTH (it->f);
+	  int tab_width = it->tab_width * font_info->space_width;
 	  int x = it->current_x + it->continuation_lines_width;
 	  int next_tab_x = ((1 + x + tab_width - 1) / tab_width) * tab_width;
 
 	  /* If the distance from the current position to the next tab
 	     stop is less than a space character width, use the
 	     tab stop after that.  */
-	  if (next_tab_x - x < FRAME_SPACE_WIDTH (it->f))
+	  if (next_tab_x - x < font_info->space_width)
 	    next_tab_x += tab_width;
 
 	  it->pixel_width = next_tab_x - x;
@@ -24171,10 +24387,18 @@ Value is a number or a cons (WIDTH-DPI . HEIGHT-DPI).  */);
   DEFVAR_INT ("debug-end-pos", &debug_end_pos, doc: /* Don't ask.  */);
 #endif
 
-  DEFVAR_BOOL ("truncate-partial-width-windows",
-	       &truncate_partial_width_windows,
-    doc: /* *Non-nil means truncate lines in all windows less than full frame wide.  */);
-  truncate_partial_width_windows = 1;
+  DEFVAR_LISP ("truncate-partial-width-windows",
+	       &Vtruncate_partial_width_windows,
+    doc: /* Non-nil means truncate lines in windows with less than the frame width.
+For an integer value, truncate lines in each window with less than the
+full frame width, provided the window width is less than that integer;
+otherwise, respect the value of `truncate-lines'.
+
+For any other non-nil value, truncate lines in all windows with
+less than the full frame width.
+
+  Nil means to respect the value of `truncate-lines'.  */);
+  Vtruncate_partial_width_windows = make_number (30);
 
   DEFVAR_BOOL ("mode-line-inverse-video", &mode_line_inverse_video,
     doc: /* When nil, display the mode-line/header-line/menu-bar in the default face.

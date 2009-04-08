@@ -158,7 +158,7 @@ Return nil if URI is not a local file."
 	(when (file-readable-p try-f) try-f)))))
 
 
-(defun dnd-open-local-file (uri action)
+(defun dnd-open-local-file (uri action &optional accept-new-files)
   "Open a local file.
 The file is opened in the current window, or a new window if
 `dnd-open-file-other-window' is set.  URI is the url for the file,
@@ -170,11 +170,13 @@ An alternative for systems that do not support unc file names is
 `dnd-open-remote-url'. ACTION is ignored."
 
   (let* ((f (dnd-get-local-file-name uri t)))
-    (if (and f (file-readable-p f))
+    (if (and f (or accept-new-files (file-readable-p f)))
 	(progn
 	  (if dnd-open-file-other-window
 	      (find-file-other-window f)
-	    (find-file f))
+	    (if (fboundp 'aquamacs-find-file)
+		(aquamacs-find-file f)
+	      (find-file f)))
 	  'private)
       (error "Can not read %s" uri))))
 

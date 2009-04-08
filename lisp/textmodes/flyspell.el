@@ -1006,6 +1006,7 @@ Mostly we check word delimiters."
   (interactive (list ispell-following-word))
   (save-excursion
     ;; use the correct dictionary
+    (ispell-maybe-find-aspell-dictionaries)
     (flyspell-accept-buffer-local-defs)
     (let* ((cursor-location (point))
            (flyspell-word (flyspell-get-word following))
@@ -1506,6 +1507,7 @@ The buffer to mark them in is `flyspell-large-region-buffer'."
     (setq flyspell-large-region-buffer curbuf)
     (setq flyspell-large-region-beg beg)
     (setq flyspell-large-region-end end)
+    (ispell-maybe-find-aspell-dictionaries)
     (flyspell-accept-buffer-local-defs)
     (set-buffer buffer)
     (erase-buffer)

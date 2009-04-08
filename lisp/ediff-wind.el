@@ -952,9 +952,10 @@ into icons, regardless of the window manager."
 	  adjusted-parameters
 	  (list
 	   ;; possibly change surrogate minibuffer
-	   (cons 'minibuffer
-		 (minibuffer-window
-		  designated-minibuffer-frame))
+;; Workaround: disabled in Aquamacs because it leads to an error
+;; 	   (cons 'minibuffer
+;; 		 (minibuffer-window
+;; 		  designated-minibuffer-frame))
 	   (cons 'width fwidth)
 	   (cons 'height fheight)
 	   (cons 'user-position t)

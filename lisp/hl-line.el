@@ -77,7 +77,11 @@
   :group 'editing)
 
 (defface hl-line
-  '((t :inherit highlight))
+  '((((class color) (background dark))
+     (:background "#551100"))		; dark brown
+    (((class color) (background light))
+     (:background "#EEEEDD"))		; light red
+    (t (:inverse-video t)))
   "Default face for highlighting the current line in Hl-Line mode."
   :version "22.1"
   :group 'hl-line)
@@ -202,9 +206,17 @@ the line including the point by OVERLAY."
 	(setq tmp (funcall hl-line-range-function)
 	      b   (car tmp)
 	      e   (cdr tmp))
-      (setq tmp t
-	    b (line-beginning-position)
-	    e (line-beginning-position 2)))
+      (if (and visual-line-mode word-wrap)
+	  (save-excursion
+	    (setq tmp t)
+	    (beginning-of-visual-line)
+	    (setq b (point))
+	    (end-of-visual-line)
+	    (skip-chars-forward " \r\n" (1+  (point)))
+	    (setq e (point)))
+	(setq tmp t
+	      b (line-beginning-position)
+	      e (line-beginning-position 2))))
     (if tmp
 	(move-overlay overlay b e)
       (move-overlay overlay 1 1))))

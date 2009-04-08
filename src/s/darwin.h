@@ -274,6 +274,9 @@ Boston, MA 02110-1301, USA.  */
 #define USE_MAC_IMAGE_IO 1
 #endif
 #endif
+/* Do not use Image I/O because the rest of the patch depends on the older API */
+#undef USE_MAC_IMAGE_IO
+#define USE_MAC_IMAGE_IO 0
 
 /* If the Image I/O framework is not used, fall back on QuickTime.  */
 #if USE_MAC_IMAGE_IO
@@ -295,7 +298,7 @@ Boston, MA 02110-1301, USA.  */
    end of the header for adding load commands.  Needed for dumping.
    0x690 is the total size of 30 segment load commands (at 56
    each).  */
-#define LD_SWITCH_SYSTEM_TEMACS -prebind LIBS_CARBON -Xlinker -headerpad -Xlinker 690
+#define LD_SWITCH_SYSTEM_TEMACS -prebind LIBS_CARBON -Xlinker -headerpad -Xlinker 8C0
 
 #define C_SWITCH_SYSTEM_TEMACS -Dtemacs
 

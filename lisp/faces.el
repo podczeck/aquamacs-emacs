@@ -323,7 +323,7 @@ specifies an invalid attribute."
 
 (defun set-face-attributes-from-resources (face frame)
   "Set attributes of FACE from X resources for FRAME."
-  (when (memq (framep frame) '(x w32 mac))
+  (when (eq (framep frame) 'x)
     (dolist (definition face-x-resources)
       (let ((attribute (car definition)))
 	(dolist (entry (cdr definition))
@@ -1792,8 +1792,8 @@ Initialize colors of certain faces from frame parameters."
       (condition-case ()
 	  (progn
 	    (face-spec-set face (face-user-default-spec face) frame)
-	    (if (memq window-system '(x w32 mac))
-		(make-face-x-resource-internal face frame))
+	     (if (eq window-system 'x)
+ 		(make-face-x-resource-internal face frame))
 	    (internal-merge-in-global-face face frame))
 	(error nil)))
     ;; Apply the attributes specified by frame parameters.  This
@@ -2080,6 +2080,13 @@ created."
 (defface mode-line-buffer-id
   '((t (:weight bold)))
   "Face used for buffer identification parts of the mode line."
+  :version "22.1"
+  :group 'mode-line-faces
+  :group 'basic-faces)
+
+(defface mode-line-flags
+  '((t (:family "sansserif")))
+  "Face used for MULE and Modified parts of the mode line."
   :version "22.1"
   :group 'mode-line-faces
   :group 'basic-faces)

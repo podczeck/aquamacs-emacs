@@ -40,12 +40,18 @@
   "Emacs start-up procedure."
   :group 'environment)
 
+(defcustom show-scratch-buffer-on-startup t
+  "Show the initial frame if it contains the *scratch* buffer on startup.
+If nil, the initial frame remains hidden if the current buffer is *scratch*."
+  :type 'boolean
+  :group 'initialization)
+
 (defcustom inhibit-startup-screen nil
   "Non-nil inhibits the startup screen.
 It also inhibits display of the initial message in the `*scratch*' buffer.
 
-This is for use in your personal init file (but NOT site-start.el), once
-you are familiar with the contents of the startup screen."
+This is for use in your personal init file, in case you
+would like to use the extra functionality of the startup screen."
   :type 'boolean
   :group 'initialization)
 
@@ -473,7 +479,12 @@ or `CVS', and any subdirectory that contains a file named `.nosearch'."
 		  (if (string-match "^\\(xterm\\|rxvt\\|dtterm\\|eterm\\)"
 				    term)
 		      (setq default-frame-background-mode 'light)))
-		(frame-set-background-mode (selected-frame)))))
+		(frame-set-background-mode (selected-frame))))
+
+	  ;; time to make the frame visible (Aquamacs)
+	  (if (or show-scratch-buffer-on-startup
+		  (not (equal (buffer-name (current-buffer)) "*scratch*")))
+	      (make-frame-visible)))
 
 	;; Now we know the user's default font, so add it to the menu.
 	(if (fboundp 'font-menu-add-default)
@@ -756,9 +767,16 @@ or `CVS', and any subdirectory that contains a file named `.nosearch'."
 
   (run-hooks 'before-init-hook)
 
-  ;; Under X Window, this creates the X frame and deletes the terminal frame.
-  (when (fboundp 'frame-initialize)
-    (frame-initialize))
+  ;; the initial frame is hidden in Aquamacs
+  (let ((initial-frame-alist (append '((visibility . nil) 
+				       (left . 99)) ;; bug #166 workaround
+				       initial-frame-alist)))
+    ;; Under X Window, this creates the X frame and deletes the terminal frame.
+    (when (fboundp 'frame-initialize)
+      (frame-initialize)
+      ;; allow frame-notice-user-settings to override
+      (setq frame-initial-geometry-arguments
+	    (delete '(visibility . nil) (delete '(left . 99) frame-initial-geometry-arguments)))))
 
   ;; Turn off blinking cursor if so specified in X resources.  This is here
   ;; only because all other settings of no-blinking-cursor are here.
@@ -829,10 +847,6 @@ or `CVS', and any subdirectory that contains a file named `.nosearch'."
     (if site-run-file
 	(load site-run-file t t))
 
-    ;; Sites should not disable this.  Only individuals should disable
-    ;; the startup screen.
-    (setq inhibit-startup-screen nil)
-
     ;; Warn for invalid user name.
     (when init-file-user
       (if (string-match "[~/:\n]" init-file-user)
@@ -889,6 +903,8 @@ or `CVS', and any subdirectory that contains a file named `.nosearch'."
 		      ;; into user-init-file.
 		      (setq user-init-file t)
 		      (load user-init-file-1 t t)
+		      (if (fboundp 'aquamacs-load-preferences) 
+			  (aquamacs-load-preferences))
 
 		      (when (eq user-init-file t)
 			;; If we did not find ~/.emacs, try
@@ -925,12 +941,7 @@ or `CVS', and any subdirectory that contains a file named `.nosearch'."
 			    (setq user-init-file source))))
 
 		      (unless inhibit-default-init
-                        (let ((inhibit-startup-screen nil))
-                          ;; Users are supposed to be told their rights.
-                          ;; (Plus how to get help and how to undo.)
-                          ;; Don't you dare turn this off for anyone
-                          ;; except yourself.
-                          (load "default" t t)))))))))
+                          (load "default" t t))))))))
 	(if init-file-debug
 	    ;; Do this without a condition-case if the user wants to debug.
 	    (funcall inner)
@@ -1513,7 +1524,7 @@ splash screen in another window."
       (message "%s" (startup-echo-area-message))
       (setq buffer-read-only t)
       (goto-char (point-min))
-      (forward-line 3))))
+      (forward-line 1))))
 
 (defun fancy-splash-frame ()
   "Return the frame to use for the fancy splash screen.
@@ -1852,33 +1863,7 @@ Type \\[describe-distribution] for information on "))
   (let ((resize-mini-windows t))
     (or noninteractive ;(input-pending-p) init-file-had-error
 	;; t if the init file says to inhibit the echo area startup message.
-	(and inhibit-startup-echo-area-message
-	     user-init-file
-	     (or (and (get 'inhibit-startup-echo-area-message 'saved-value)
-		      (equal inhibit-startup-echo-area-message
-			     (if (equal init-file-user "")
-				 (user-login-name)
-			       init-file-user)))
-		 ;; Wasn't set with custom; see if .emacs has a setq.
-		 (let ((buffer (get-buffer-create " *temp*")))
-		   (prog1
-		       (condition-case nil
-			   (save-excursion
-			     (set-buffer buffer)
-			     (insert-file-contents user-init-file)
-			     (re-search-forward
-			      (concat
-			       "([ \t\n]*setq[ \t\n]+"
-			       "inhibit-startup-echo-area-message[ \t\n]+"
-			       (regexp-quote
-				(prin1-to-string
-				 (if (equal init-file-user "")
-				     (user-login-name)
-				   init-file-user)))
-			       "[ \t\n]*)")
-			      nil t))
-			 (error nil))
-		     (kill-buffer buffer)))))
+	inhibit-startup-echo-area-message
 	(message "%s" (startup-echo-area-message)))))
 
 (defun display-startup-screen (&optional concise)
@@ -2152,6 +2137,11 @@ A fancy display is used on graphic displays, normal otherwise."
       ;; keystroke, and that's distracting.
       (when (fboundp 'frame-notice-user-settings)
 	(frame-notice-user-settings))
+
+      ;; time to make the frame visible (Aquamacs)
+      (if (or show-scratch-buffer-on-startup
+		  (not (equal (buffer-name (current-buffer)) "*scratch*")))
+	      (make-frame-visible)) 
 
       ;; If there are no switches to process, we might as well
       ;; run this hook now, and there may be some need to do it

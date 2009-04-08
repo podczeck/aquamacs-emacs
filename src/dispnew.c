@@ -3516,6 +3516,7 @@ direct_output_for_insert (g)
       || g == '\t'
       || g == '\n'
       || g == '\r'
+      || (g == ' ' && !NILP (current_buffer->word_wrap))
       /* Give up if unable to display the cursor in the window.  */
       || w->cursor.vpos < 0
       /* Give up if we are showing a message or just cleared the message
@@ -4417,10 +4418,12 @@ update_text_area (w, vpos)
   /* Let functions in xterm.c know what area subsequent X positions
      will be relative to.  */
   updated_area = TEXT_AREA;
-
   /* If rows are at different X or Y, or rows have different height,
      or the current row is marked invalid, write the entire line.  */
-  if (!current_row->enabled_p
+  if (!desired_row->displays_text_p   
+	    /* window background needs to be drawn using    
+	     clear_end_of_line, under the visible buffer text.   */
+      ||  !current_row->enabled_p
       || desired_row->y != current_row->y
       || desired_row->ascent != current_row->ascent
       || desired_row->phys_ascent != current_row->phys_ascent
@@ -5903,7 +5906,7 @@ buffer_posn_from_coords (w, x, y, pos, object, dx, dy, width, height)
      int *width, *height;
 {
   struct it it;
-  struct buffer *old_current_buffer = current_buffer;
+  Lisp_Object old_current_buffer = Fcurrent_buffer ();
   struct text_pos startp;
   Lisp_Object string;
   struct glyph_row *row;
@@ -5912,7 +5915,9 @@ buffer_posn_from_coords (w, x, y, pos, object, dx, dy, width, height)
 #endif
   int x0, x1;
 
-  current_buffer = XBUFFER (w->buffer);
+  /* We used to set current_buffer directly here, but that does the
+     wrong thing with `face-remapping-alist' (bug#2044).  */
+  Fset_buffer (w->buffer);
   SET_TEXT_POS_FROM_MARKER (startp, w->start);
   CHARPOS (startp) = min (ZV, max (BEGV, CHARPOS (startp)));
   BYTEPOS (startp) = min (ZV_BYTE, max (BEGV_BYTE, BYTEPOS (startp)));
@@ -5922,7 +5927,7 @@ buffer_posn_from_coords (w, x, y, pos, object, dx, dy, width, height)
   move_it_to (&it, -1, x0 + it.first_visible_x, *y, -1,
 	      MOVE_TO_X | MOVE_TO_Y);
 
-  current_buffer = old_current_buffer;
+  Fset_buffer (old_current_buffer);
 
   *dx = x0 + it.first_visible_x - it.current_x;
   *dy = *y - it.current_y;

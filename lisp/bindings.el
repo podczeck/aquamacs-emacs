@@ -156,6 +156,7 @@ corresponding to the mode line clicked."
       (setq desc
 	    (propertize
 	     mnemonic
+	     'face 'mode-line-flags
 	     'help-echo (format "%s end-of-line; mouse-1 to cycle"
 				(if (eq eol 0) "Unix-style LF"
 				  (if (eq eol 1) "Dos-style CRLF"
@@ -174,6 +175,7 @@ corresponding to the mode line clicked."
   `(""
     (current-input-method
      (:propertize ("" current-input-method-title)
+		  face mode-line-flags
 		  help-echo (concat
 			     "Input method: "
 			     current-input-method
@@ -182,6 +184,7 @@ corresponding to the mode line clicked."
 		  mouse-face mode-line-highlight))
     ,(propertize
       "%z"
+      'face 'mode-line-flags
       'help-echo
       #'(lambda (window object point)
 	  (with-current-buffer (window-buffer window)
@@ -221,6 +224,7 @@ Normally nil in most modes, since there is no process to display.")
 (defvar mode-line-modified
   (list (propertize
 	 "%1*"
+	 'face 'mode-line-flags
 	 'help-echo (purecopy (lambda (window object point)
  				(format "%sead-only: mouse-1 toggles"
 					(save-selected-window
@@ -234,6 +238,7 @@ Normally nil in most modes, since there is no process to display.")
 	 'mouse-face 'mode-line-highlight)
 	(propertize
 	 "%1+"
+	 'face 'mode-line-flags
 	 'help-echo  (purecopy (lambda (window object point)
 				 (format "%sodified: mouse-1 toggles"
 					 (save-selected-window
@@ -273,18 +278,23 @@ Keymap to display on major mode.")
     map) "\
 Keymap to display on minor modes.")
 
+(defvar command-line-processed nil)
+(defvar before-init-hook nil)
+(eval-at-startup ;; because of window-system
 (let* ((help-echo
 	;; The multi-line message doesn't work terribly well on the
 	;; bottom mode line...  Better ideas?
 	;; 	  "\
 	;; mouse-1: select window, mouse-2: delete others, mouse-3: delete,
 	;; drag-mouse-1: resize, C-mouse-2: split horizontally"
-	"mouse-1: select (drag to resize), mouse-2 = C-x 1, mouse-3 = C-x 0")
-       (dashes (propertize "--" 'help-echo help-echo))
+	"mouse-1: select (drag to resize), mouse-2: delete others, mouse-3: delete this")
+       (lotsofdashes (if window-system (make-string 100 32) "%-"))
+       (dash (propertize (if window-system " " "-") 'help-echo help-echo))
+       (dashes (propertize (if window-system "  " "--") 'help-echo help-echo))
        (standard-mode-line-format
 	(list
 	 "%e"
-	 (propertize "-" 'help-echo help-echo)
+	 (propertize dash 'help-echo help-echo)
 	 'mode-line-mule-info
 	 'mode-line-modified
 	 'mode-line-frame-identification
@@ -296,7 +306,7 @@ Keymap to display on minor modes.")
 	 'mode-line-modes
 	 `(which-func-mode ("" which-func-format ,dashes))
 	 `(global-mode-string (,dashes global-mode-string))
-	 (propertize "-%-" 'help-echo help-echo)))
+	 (propertize (concat dash lotsofdashes) 'help-echo help-echo)))
        (standard-mode-line-modes
 	(list
 	 (propertize "%[(" 'help-echo help-echo)
@@ -313,7 +323,7 @@ Keymap to display on minor modes.")
 		     'mouse-face 'mode-line-highlight
 		     'local-map (make-mode-line-mouse-map
 				 'mouse-2 #'mode-line-widen))
-	 (propertize ")%]--" 'help-echo help-echo)))
+	 (propertize (concat ")%]" dashes) 'help-echo help-echo)))
        (standard-mode-line-position
 	`((-3 ,(propertize "%p" 'help-echo help-echo))
 	  (size-indication-mode
@@ -335,7 +345,7 @@ Keymap to display on minor modes.")
 
   (setq-default mode-line-position standard-mode-line-position)
   (put 'mode-line-position 'standard-value
-       (list `(quote ,standard-mode-line-position))))
+       (list `(quote ,standard-mode-line-position)))))
 
 (defvar mode-line-buffer-identification-keymap
   ;; Add menu of buffer operations to the buffer identification part

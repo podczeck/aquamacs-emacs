@@ -1475,7 +1475,7 @@ in `selection-converter-alist', which see."
 (when (eq system-type 'darwin)
   (put 'FIND 'mac-scrap-name "com.apple.scrap.find")
   (put 'PRIMARY 'mac-scrap-name
-       (format "org.gnu.Emacs.%d.selection.PRIMARY" (emacs-pid))))
+       (format "org.gnu.AquamacsEmacs.%d.selection.PRIMARY" (emacs-pid))))
 (put 'com.apple.traditional-mac-plain-text 'mac-ostype "TEXT")
 (put 'public.utf16-plain-text 'mac-ostype "utxt")
 (put 'public.tiff 'mac-ostype "TIFF")
@@ -1726,13 +1726,41 @@ if possible.  If there's no such frame, a new frame is created."
 (defun mac-ae-open-documents (event)
   "Open the documents specified by the Apple event EVENT."
   (interactive "e")
-  (let ((ae (mac-event-ae event)))
-    (dolist (file-name (mac-ae-list ae nil 'undecoded-file-name))
-      (if file-name
-	  (dnd-open-local-file
-	   (concat "file://"
-		   (mapconcat 'url-hexify-string
-			      (split-string file-name "/") "/")) nil)))
+  (let ((ae (mac-event-ae event))
+	(target-frame)
+	(save-one-buffer-one-frame one-buffer-one-frame))
+    (unwind-protect
+	(dolist (file-name (mac-ae-list ae nil 'undecoded-file-name))
+	  (if file-name
+	      (let (
+		    (sel-win (selected-window))) ; search all visible&iconified frames
+		(unless 
+		    (and sel-win 
+			 (window-live-p sel-win)
+			 (eq t (frame-visible-p (window-frame sel-win)))
+			 (not (special-display-p 
+			       (or (buffer-name (window-buffer sel-win)) ""))))
+					; search visible frames (but not dedicated ones)
+		  (setq sel-win (get-largest-window 'visible nil)))
+		(unless 
+		    (and sel-win 
+			 (window-live-p sel-win)
+			 (eq t (frame-visible-p (window-frame sel-win)))
+			 (not (special-display-p 
+			       (or (buffer-name (window-buffer sel-win)) ""))))
+		  ;; make new frame
+		  (setq one-buffer-one-frame t)
+		  (setq sel-win (selected-window)))
+		(with-selected-window sel-win
+		  (dnd-open-local-file
+		   (concat "file://"
+			   (mapconcat 'url-hexify-string
+				      (split-string file-name "/") "/")) nil
+		   'accept-new-files)
+		  (setq target-frame (window-frame (selected-window)))))))
+      ;; unwind
+      (setq one-buffer-one-frame save-one-buffer-one-frame))
+    (select-frame-set-input-focus target-frame)
     (let ((selection-range (mac-ae-selection-range ae))
 	  (search-text (mac-ae-text-for-search ae)))
       (cond (selection-range
@@ -1747,8 +1775,7 @@ if possible.  If there's no such frame, a new frame is created."
 	    ((stringp search-text)
 	     (re-search-forward
 	      (mapconcat 'regexp-quote (split-string search-text) "\\|")
-	      nil t)))))
-  (select-frame-set-input-focus (selected-frame)))
+	      nil t))))))
 
 (defun mac-ae-quit-application (event)
   "Quit the application Emacs with the Apple event EVENT."
@@ -1816,12 +1843,27 @@ modifiers, it changes the global tool-bar visibility setting."
 ;;; Font panel
 (when (fboundp 'mac-set-font-panel-visible-p)
 
+(defvar mac-font-panel-target-face 'default)
+(defvar mac-font-panel-target-frame nil)
+
 (define-minor-mode mac-font-panel-mode
   "Toggle use of the font panel.
 With numeric ARG, display the font panel if and only if ARG is positive."
   :init-value nil
   :global t
   :group 'mac
+  (when mac-font-panel-mode
+    (setq mac-font-panel-target-face 'default)
+
+    (when (and (boundp 'face-remapping-alist)
+	     (assq mac-font-panel-target-face face-remapping-alist))
+      (setq mac-font-panel-target-face 
+	    (let ((face (cdr (assq mac-font-panel-target-face
+				   face-remapping-alist))))
+	      (if (get face 'theme-face)
+		  face
+		(or (face-attribute face :inherit)
+		    mac-font-panel-target-face))))))
   (mac-set-font-panel-visible-p mac-font-panel-mode))
 
 (defun mac-handle-font-panel-closed (event)
@@ -1834,6 +1876,7 @@ With numeric ARG, display the font panel if and only if ARG is positive."
   "Change default face attributes according to font selection EVENT."
   (interactive "e")
   (let* ((ae (mac-event-ae event))
+	 (face (or mac-font-panel-target-face 'default))
 	 (fm-font-size (mac-ae-number ae "fmsz"))
 	 (atsu-font-id (mac-ae-number ae "auid"))
 	 (attribute-values (and atsu-font-id
@@ -1841,7 +1884,16 @@ With numeric ARG, display the font panel if and only if ARG is positive."
     (if fm-font-size
 	(setq attribute-values
 	      `(:height ,(* 10 fm-font-size) ,@attribute-values)))
-    (apply 'set-face-attribute 'default (selected-frame) attribute-values)))
+    
+    (apply 'set-face-attribute face
+	   mac-font-panel-target-frame attribute-values)
+    ;; ensure this is saved as a customization
+    (let ((value 
+	   (list (list t (custom-face-attributes-get 
+			  face nil)))))
+      (put face 'saved-face value)
+      (custom-push-theme 'theme-face face 'user 'set value))
+    (message "Font set for %s face." face)))
 
 ;; kEventClassFont/kEventFontPanelClosed
 (define-key mac-apple-event-map [font panel-closed]
@@ -2097,9 +2149,19 @@ either in the current buffer or in the echo area."
 				      (concat msg active-input-string)))
 	      (setq msg active-input-string))
 	    (message "%s" msg)
+	    (overlay-put mac-ts-active-input-overlay 'face nil)
 	    (overlay-put mac-ts-active-input-overlay 'before-string nil))
+	(overlay-put mac-ts-active-input-overlay 'face nil)
+	(let ((overlays (overlays-in (point) (point)))
+	      (face nil))
+	  (while overlays
+	    (setq face (overlay-get (car overlays) 'face))
+	    (and face
+		 (overlay-put mac-ts-active-input-overlay 'face face))
+	    (setq overlays (cdr overlays))))
 	(move-overlay mac-ts-active-input-overlay
-		      (point) (point) (current-buffer))
+		      (point) (+ (point) (length active-input-string))
+		      (current-buffer))
 	(overlay-put mac-ts-active-input-overlay 'before-string
 		     active-input-string))
       (mac-unread-string (funcall decode-fun confirmed coding)))

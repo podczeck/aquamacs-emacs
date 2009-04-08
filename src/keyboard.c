@@ -532,6 +532,9 @@ Lisp_Object Qmouse_click;
 #if defined (WINDOWSNT) || defined (MAC_OS)
 Lisp_Object Qlanguage_change;
 #endif
+#if defined (MAC_OSX)
+Lisp_Object Qmac_change_input_method;
+#endif
 Lisp_Object Qdrag_n_drop;
 Lisp_Object Qsave_session;
 #ifdef MAC_OS
@@ -4163,6 +4166,15 @@ kbd_buffer_get_event (kbp, used_mouse_menu, end_time)
 	  kbd_fetch_ptr = event + 1;
 	}
 #endif
+#if defined (MAC_OSX)
+      else if (event->kind == MAC_CHANGE_INPUT_METHOD_EVENT)
+	{
+	  /* Make an event (mac-change-input-method (KEY_SCRIPT)).  */
+	  obj = Fcons (make_number (event->code), Qnil);
+	  obj = Fcons (Qmac_change_input_method, Fcons (obj, Qnil));
+	  kbd_fetch_ptr = event + 1;
+	}
+#endif
       else if (event->kind == SAVE_SESSION_EVENT)
         {
           obj = Fcons (Qsave_session, Qnil);
@@ -7686,9 +7698,12 @@ parse_menu_item (item, notreal, inmenubar)
   if (NILP (cachelist))
     {
       /* We have to create a cachelist.  */
-      CHECK_IMPURE (start);
-      XSETCDR (start, Fcons (Fcons (Qnil, Qnil), XCDR (start)));
-      cachelist = XCAR (XCDR (start));
+      /* With the introduction of where_is_cache, the computation
+         of equivalent key bindings is sufficiently fast that we
+         do not need to cache it here any more. */
+      /* CHECK_IMPURE (start);
+         XSETCDR (start, Fcons (Fcons (Qnil, Qnil), XCDR (start))); */
+      cachelist = Fcons (Qnil, Qnil);
       newcache = 1;
       tem = AREF (item_properties, ITEM_PROPERTY_KEYEQ);
       if (!NILP (keyhint))
@@ -7786,7 +7801,7 @@ parse_menu_item (item, notreal, inmenubar)
   tem = XCDR (cachelist);
   if (newcache && !NILP (tem))
     {
-      tem = concat3 (build_string ("  ("), tem, build_string (")"));
+      tem = concat2 (build_string ("    "), tem);
       XSETCDR (cachelist, tem);
     }
 
@@ -11213,6 +11228,10 @@ syms_of_keyboard ()
 #if defined (WINDOWSNT) || defined (MAC_OS)
   Qlanguage_change = intern ("language-change");
   staticpro (&Qlanguage_change);
+#endif
+#if defined (MAC_OSX)
+  Qmac_change_input_method = intern ("mac-change-input-method");
+  staticpro (&Qmac_change_input_method);
 #endif
   Qdrag_n_drop = intern ("drag-n-drop");
   staticpro (&Qdrag_n_drop);

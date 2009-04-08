@@ -62,6 +62,12 @@ Lisp_Object Vx_resource_name;
 
 Lisp_Object Vx_resource_class;
 
+#if defined (HAVE_X_WINDOWS) || defined (HAVE_CARBON)
+/* Lower limit value of frame transparency.  */
+
+Lisp_Object Vframe_alpha_lower_limit;
+#endif
+
 #endif
 
 Lisp_Object Qframep, Qframe_live_p;
@@ -106,6 +112,9 @@ Lisp_Object Qmenu_bar_lines, Qtool_bar_lines;
 Lisp_Object Qleft_fringe, Qright_fringe;
 Lisp_Object Qbuffer_predicate, Qbuffer_list;
 Lisp_Object Qtty_color_mode;
+#if defined (HAVE_X_WINDOWS) || defined (HAVE_CARBON)
+Lisp_Object Qalpha;
+#endif
 
 Lisp_Object Qfullscreen, Qfullwidth, Qfullheight, Qfullboth;
 
@@ -2585,6 +2594,9 @@ static struct frame_parm_table frame_parms[] =
   {"right-fringe",		&Qright_fringe},
   {"wait-for-wm",		&Qwait_for_wm},
   {"fullscreen",                &Qfullscreen},
+#if defined (HAVE_X_WINDOWS) || defined (HAVE_CARBON)
+  {"alpha",			 &Qalpha},
+#endif
 };
 
 #ifdef HAVE_WINDOW_SYSTEM
@@ -3138,6 +3150,9 @@ x_set_font (f, arg, oldval)
   else
     abort ();
 
+  if (fullscreen_hook != NULL) 
+    fullscreen_hook (f);
+
   do_pending_window_change (0);
 
   /* Don't call `face-set-after-frame-default' when faces haven't been
@@ -3329,6 +3344,61 @@ x_icon_type (f)
   else
     return Qnil;
 }
+
+#if defined (HAVE_X_WINDOWS) || defined (HAVE_CARBON)
+void
+x_set_alpha (f, arg, oldval)
+     struct frame *f;
+     Lisp_Object arg, oldval;
+{
+  double alpha = 1.0;
+  double newval[2];
+  int i, ialpha;
+  Lisp_Object item;
+
+  for (i=0;i<2;i++)
+    {
+      newval[i] = 1.0;
+      if (CONSP (arg))
+        {
+          item = CAR (arg);
+          arg  = CDR (arg);
+        }
+      else
+        item=arg;
+
+      if (!NILP (item))
+        {
+          if (FLOATP (item))
+            {
+              alpha = XFLOAT_DATA (item);
+              if (alpha < 0.0 || 1.0 < alpha)
+                args_out_of_range (make_float (0.0), make_float (1.0));
+            }
+          else if (INTEGERP (item))
+            {
+              ialpha = XINT (item);
+              if (ialpha < 0 || 100 < ialpha)
+                args_out_of_range (make_number (0), make_number (100));
+              else
+                alpha = ialpha / 100.0;
+            }
+          else
+            wrong_type_argument (Qnumberp, item);
+        }
+      newval[i] = alpha;
+    }
+
+  for (i=0;i<2;i++)
+    f->alpha[i] = newval[i];
+
+  BLOCK_INPUT;
+  x_set_frame_alpha (f);
+  UNBLOCK_INPUT;
+
+  return;
+}
+#endif
 
 
 /* Subroutines of creating an X frame.  */
@@ -4086,6 +4156,15 @@ Setting this variable permanently is not a reasonable thing to do,
 but binding this variable locally around a call to `x-get-resource'
 is a reasonable practice.  See also the variable `x-resource-name'.  */);
   Vx_resource_class = build_string (EMACS_CLASS);
+
+#if defined (HAVE_X_WINDOWS) || defined (HAVE_CARBON)
+  DEFVAR_LISP ("frame-alpha-lower-limit", &Vframe_alpha_lower_limit,
+    doc: /* The lower limit of the frame opacity (alpha transparency).
+The value should range from 0 (invisible) to 100 (completely opaque).
+The user can also use a floating number between 0.0 and 1.0.
+The default is 20.  */);
+  Vframe_alpha_lower_limit = make_number (20);
+#endif
 #endif
 
   DEFVAR_LISP ("default-frame-alist", &Vdefault_frame_alist,

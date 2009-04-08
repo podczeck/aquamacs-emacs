@@ -1395,10 +1395,20 @@ compute_motion (from, fromvpos, fromhpos, did_motion, to, tovpos, tohpos, width,
 
       if (hpos > width)
 	{
-	  if (hscroll
-	      || (truncate_partial_width_windows
-		  && ((width + continuation_glyph_width)
-		      < FRAME_COLS (XFRAME (WINDOW_FRAME (win)))))
+	  int total_width = width + continuation_glyph_width;
+	  int truncate = 0;
+
+	  if (!NILP ((Lisp_Object) Vtruncate_partial_width_windows)
+	      && (total_width < FRAME_COLS (XFRAME (WINDOW_FRAME (win)))))
+	    {
+	      if (INTEGERP ((Lisp_Object) Vtruncate_partial_width_windows))
+		truncate
+		  = total_width < XFASTINT ((Lisp_Object) Vtruncate_partial_width_windows);
+	      else
+		truncate = 1;
+	    }
+
+	  if (hscroll || truncate
 	      || !NILP (current_buffer->truncate_lines))
 	    {
 	      /* Truncating: skip to newline, unless we are already past
@@ -2023,6 +2033,7 @@ vmotion (from, vtarget, w)
 			 w);
 }
 
+
 DEFUN ("vertical-motion", Fvertical_motion, Svertical_motion, 1, 2, 0,
        doc: /* Move point to start of the screen line LINES lines down.
 If LINES is negative, this means moving up.
@@ -2039,6 +2050,10 @@ The optional second argument WINDOW specifies the window to use for
 parameters such as width, horizontal scrolling, and so on.
 The default is to use the selected window's parameters.
 
+LINES can optionally take the form (COLS . LINES), in which case
+the motion will not stop at the start of a screen line but on
+its column COLS (if such exists on that line, that is).
+
 `vertical-motion' always uses the current buffer,
 regardless of which buffer is displayed in WINDOW.
 This is consistent with other cursor motion functions
@@ -2052,6 +2067,16 @@ whether or not it is currently displayed in some window.  */)
   struct window *w;
   Lisp_Object old_buffer;
   struct gcpro gcpro1;
+  Lisp_Object lcols = Qnil;
+  double cols;
+
+  /* Allow LINES to be of the form (HPOS . VPOS) aka (COLUMNS . LINES).  */
+  if (CONSP (lines) && (NUMBERP (XCAR (lines))))
+    {
+      lcols = XCAR (lines);
+      cols = INTEGERP (lcols) ? (double) XINT (lcols) : XFLOAT_DATA (lcols);
+      lines = XCDR (lines);
+    }
 
   CHECK_NUMBER (lines);
   if (! NILP (window))
@@ -2077,12 +2102,11 @@ whether or not it is currently displayed in some window.  */)
     }
   else
     {
-      int it_start;
-      int oselective;
-      int it_overshoot_expected;
+      int it_start, oselective, it_overshoot_expected, first_x;
 
       SET_TEXT_POS (pt, PT, PT_BYTE);
       start_display (&it, w, pt);
+      first_x = it.first_visible_x;
 
       /* Scan from the start of the line containing PT.  If we don't
 	 do this, we start moving with IT->current_x == 0, while PT is
@@ -2140,6 +2164,22 @@ whether or not it is currently displayed in some window.  */)
       if (XINT (lines) >= 0 || IT_CHARPOS (it) > 0)
 	move_it_by_lines (&it, XINT (lines), 0);
 
+      /* Move to the goal column, if one was specified.  */
+      if (!NILP (lcols))
+	{
+	  /* If the window was originally hscrolled, move forward by
+	     the hscrolled amount first.  */
+	  if (first_x > 0)
+	    {
+	      move_it_in_display_line (&it, ZV, first_x, MOVE_TO_X);
+	      it.current_x = 0;
+	    }
+	  move_it_in_display_line
+	    (&it, ZV,
+	     (int)(cols * FRAME_COLUMN_WIDTH (XFRAME (w->frame)) + 0.5),
+	     MOVE_TO_X);
+	}
+
       SET_PT_BOTH (IT_CHARPOS (it), IT_BYTEPOS (it));
     }
 
@@ -2148,6 +2188,7 @@ whether or not it is currently displayed in some window.  */)
 
   RETURN_UNGCPRO (make_number (it.vpos));
 }
+
 
 
 

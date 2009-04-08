@@ -179,6 +179,8 @@ Lisp_Object Qmodification_hooks;
 Lisp_Object Qinsert_in_front_hooks;
 Lisp_Object Qinsert_behind_hooks;
 
+Lisp_Object Qselect_frame_set_input_focus;
+
 static void alloc_buffer_text P_ ((struct buffer *, size_t));
 static void free_buffer_text P_ ((struct buffer *b));
 static struct Lisp_Overlay * copy_overlays P_ ((struct buffer *, struct Lisp_Overlay *));
@@ -1713,6 +1715,9 @@ Optional second arg NORECORD non-nil means
 do not put this buffer at the front of the list of recently selected ones.
 This function returns the buffer it switched to.
 
+If the selected window is the minibuffer window or dedicated to
+its buffer, use `pop-to-buffer' for displaying the buffer.
+
 WARNING: This is NOT the way to work on another buffer temporarily
 within a Lisp program!  Use `set-buffer' instead.  That avoids messing with
 the window-buffer correspondences.  */)
@@ -1735,10 +1740,13 @@ the window-buffer correspondences.  */)
       return Fset_buffer (buffer);
     }
 
-  err = no_switch_window (selected_window);
-  if (err) error (err);
-
-  return switch_to_buffer_1 (buffer, norecord);
+  if (EQ (minibuf_window, selected_window)
+      || !NILP (Fwindow_dedicated_p (selected_window)))
+    /* We can't use the selected window so let `pop-to-buffer' try some
+       other window. */
+    return call3 (intern ("pop-to-buffer"), buffer, Qnil, norecord);
+  else
+    return switch_to_buffer_1 (buffer, norecord);
 }
 
 DEFUN ("pop-to-buffer", Fpop_to_buffer, Spop_to_buffer, 1, 3, 0,
@@ -1773,7 +1781,10 @@ do not put this buffer at the front of the list of recently selected ones.  */)
 	}
     }
   Fset_buffer (buf);
-  Fselect_window (Fdisplay_buffer (buf, other_window, Qnil), norecord);
+  call1(Qselect_frame_set_input_focus,
+	Fwindow_frame( Fselect_window (Fdisplay_buffer (buf, 
+							other_window, Qnil), 
+				       norecord)));
   return buf;
 }
 
@@ -5036,6 +5047,7 @@ init_buffer_once ()
 
   XSETFASTINT (buffer_defaults.tab_width, 8);
   buffer_defaults.truncate_lines = Qnil;
+  buffer_defaults.word_wrap = Qnil;
   buffer_defaults.ctl_arrow = Qt;
   buffer_defaults.direction_reversed = Qnil;
   buffer_defaults.cursor_type = Qt;
@@ -5108,6 +5120,7 @@ init_buffer_once ()
 #endif
   XSETFASTINT (buffer_local_flags.tab_width, idx); ++idx;
   XSETFASTINT (buffer_local_flags.truncate_lines, idx); ++idx;
+  XSETFASTINT (buffer_local_flags.word_wrap, idx); ++idx;
   XSETFASTINT (buffer_local_flags.ctl_arrow, idx); ++idx;
   XSETFASTINT (buffer_local_flags.fill_column, idx); ++idx;
   XSETFASTINT (buffer_local_flags.left_margin, idx); ++idx;
@@ -5290,6 +5303,8 @@ syms_of_buffer ()
   Qafter_change_functions = intern ("after-change-functions");
   staticpro (&Qafter_change_functions);
   staticpro (&Qucs_set_table_for_input);
+  Qselect_frame_set_input_focus = intern ("select-frame-set-input-focus");
+  staticpro (&Qselect_frame_set_input_focus);
 
   Qkill_buffer_query_functions = intern ("kill-buffer-query-functions");
   staticpro (&Qkill_buffer_query_functions);
@@ -5355,6 +5370,11 @@ This is the same as (default-value 'buffer-file-coding-system).  */);
 		     &buffer_defaults.truncate_lines,
 		     doc: /* Default value of `truncate-lines' for buffers that do not override it.
 This is the same as (default-value 'truncate-lines).  */);
+
+  DEFVAR_LISP_NOPRO ("default-word-wrap",
+		     &buffer_defaults.word_wrap,
+		     doc: /* Default value of `word-wrap' for buffers that do not override it.
+This is the same as (default-value 'word-wrap).  */);
 
   DEFVAR_LISP_NOPRO ("default-fill-column",
 		     &buffer_defaults.fill_column,
@@ -5599,6 +5619,15 @@ Instead, give each line of text just one screen line.
 Note that this is overridden by the variable
 `truncate-partial-width-windows' if that variable is non-nil
 and this buffer is not full-frame width.  */);
+
+  DEFVAR_PER_BUFFER ("word-wrap", &current_buffer->word_wrap, Qnil,
+		     doc: /* *Non-nil means to use word-wrapping for continuation lines.
+When word-wrapping is on, continuation lines are wrapped at the space
+or tab character nearest to the right window edge.
+If nil, continuation lines are wrapped at the right screen edge.
+
+This variable has no effect if long lines are truncated (see
+`truncate-lines' and `truncate-partial-width-windows').  */);
 
 #ifdef DOS_NT
   DEFVAR_PER_BUFFER ("buffer-file-type", &current_buffer->buffer_file_type,

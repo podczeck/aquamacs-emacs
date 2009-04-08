@@ -980,6 +980,37 @@ use with M-x."
     (rename-file encoded new-encoded ok-if-already-exists)
     newname))
 
+(defun forward-filename (arg)
+  "Move point forward arg filenames (backward if arg is negative)."
+  (interactive "p")
+  (if (< arg 0)
+      (progn
+	(backward-char)
+	(while (< arg 0)
+	  (re-search-backward "[/\n]" nil t)
+	  (incf arg))
+	(forward-char))
+    (forward-char)
+    (while (> 0 arg )
+      (re-search-forward "[/\n]" nil t)
+      (decf arg))
+    (backward-char)))
+
+(defun kill-filename (arg)
+  "Kill characters forward until up to the end of a filename.
+With argument, do this that many times."
+  (interactive "p")
+  (kill-region (point) (progn (forward-filename arg) (point))))
+
+(defun backward-kill-filename (arg)
+  "Kill characters backward up to the beginning of a filename.
+With argument, do this that many times."
+  (interactive "p")
+  (kill-filename (- arg)))
+
+(define-key minibuffer-local-filename-completion-map 
+  [remap backward-kill-word] 'backward-kill-filename)
+
 (defun switch-to-buffer-other-window (buffer &optional norecord)
   "Select buffer BUFFER in another window.
 If BUFFER does not identify an existing buffer, then this function
@@ -3869,15 +3900,15 @@ This requires the external program `diff' to be in your `exec-path'."
   nil)
 
 (defvar save-some-buffers-action-alist
-  '((?\C-r
-     (lambda (buf)
-       (view-buffer buf
-		    (lambda (ignore)
-		      (exit-recursive-edit)))
-       (recursive-edit)
-       ;; Return nil to ask about BUF again.
-       nil)
-     "view this buffer")
+  '(;; (?\C-r
+;;      (lambda (buf)
+;;        (view-buffer buf
+;; 		    (lambda (ignore)
+;; 		      (exit-recursive-edit)))
+;;        (recursive-edit)
+;;        ;; Return nil to ask about BUF again.
+;;        nil)
+;;      "view this buffer")
     (?d (lambda (buf)
 	  (save-window-excursion
 	    (diff-buffer-with-file buf))
@@ -3911,7 +3942,7 @@ change the additional actions you can take on files."
   (save-window-excursion
     (let* (queried some-automatic
 	   files-done abbrevs-done)
-      (dolist (buffer (buffer-list))
+      (dolist (buffer (buffer-list   ))
 	;; First save any buffers that we're supposed to save unconditionally.
 	;; That way the following code won't ask about them.
 	(with-current-buffer buffer
@@ -3937,6 +3968,14 @@ change the additional actions you can take on files."
 		     (if arg
 			 t
 		       (setq queried t)
+		       (with-current-buffer buffer
+			 (with-selected-window (get-window-for-other-buffer)
+			   (if (and (boundp 'tabbar-mode) tabbar-mode)
+			       (switch-to-buffer-in-tab buffer)
+			     (switch-to-buffer buffer))
+			   (select-frame-set-input-focus (window-frame (selected-window)))
+			   (if (fboundp 'smart-move-minibuffer-inside-screen)
+			       (smart-move-minibuffer-inside-screen))))
 		       (if (buffer-file-name buffer)
 			   (format "Save file %s? "
 				   (buffer-file-name buffer))
@@ -4582,8 +4621,8 @@ See also `auto-save-file-name-p'."
 		     ;; Try a few alternative directories, to get one we can
 		     ;; write it.
 		     (cond
-		      ((file-writable-p default-directory) default-directory)
 		      ((file-writable-p "/var/tmp/") "/var/tmp/")
+		      ((file-writable-p "/tmp/") "/tmp/")
 		      ("~/")))))
 	       (if (and (memq system-type '(ms-dos windows-nt cygwin))
 			;; Don't modify remote (ange-ftp) filenames

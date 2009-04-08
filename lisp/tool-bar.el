@@ -64,8 +64,8 @@ conveniently adding tool bar items."
 	 ;; ...and future ones.
 	 (let ((elt (assq 'tool-bar-lines default-frame-alist)))
 	   (if elt
-	       (setcdr elt lines)
-	     (add-to-list 'default-frame-alist (cons 'tool-bar-lines lines)))))
+	       (setq default-frame-alist (delete elt default-frame-alist)))
+	   (add-to-list 'default-frame-alist (cons 'tool-bar-lines lines))))
        (if (and tool-bar-mode
 		(display-graphic-p)
 		(= 1 (length (default-value 'tool-bar-map)))) ; not yet setup
@@ -90,6 +90,77 @@ Define this locally to override the global tool bar.")
 		'(menu-item "tool bar" ignore
 			    :filter (lambda (ignore) tool-bar-map)))
 
+(defun tool-bar-set-file-extension (image-spec-list extension)
+  "Set new file extensions for all :file properties
+Replace any extensions of :file properties in elements of
+IMAGE-SPEC-LIST. An extension may start with a period . or an
+underscore. EXTENSION and the original file name extension (starting
+with a period) are added to the file name.
+
+E.g. foo_dis.xpm becomes foo_sel.xpm if EXTENSION is '_sel'."
+  (mapcar
+   (lambda (spec) 
+     (let ((f (plist-get spec :file)) 
+	    )
+        (if (null f)
+	    spec
+	  ;; need to replace previous extensions, including those
+	  ;; starting with _ - 
+	  (plist-put spec :file (concat (replace-regexp-in-string "[\.\_].*$" 
+								  "" f)
+					extension 
+					(file-name-extension f t)))
+	  )))
+   image-spec-list))
+
+(defun tool-bar-get-image-spec (icon)
+  (let* ((fg (face-attribute 'tool-bar :foreground))
+	 (bg (face-attribute 'tool-bar :background))
+	 (colors (nconc (if (eq fg 'unspecified) nil (list :foreground fg))
+			(if (eq bg 'unspecified) nil (list :background bg))))
+	 (xpm-spec (list :type 'xpm :file (concat icon ".xpm")))
+	 (xpm-lo-spec (if (> (display-color-cells) 256)
+			  nil
+			(list :type 'xpm :file
+                              (concat "low-color/" icon ".xpm"))))
+	 (png-spec (if (image-type-available-p 'png)
+		       (list :type 'png :file (concat icon ".png") 
+			     :background "grey")))
+	 (pbm-spec (append (list :type 'pbm :file
+                                 (concat icon ".pbm")) colors))
+	 (xbm-spec (append (list :type 'xbm :file
+                                 (concat icon ".xbm")) colors))
+	 (image (find-image
+		(if (display-color-p)
+		    (list png-spec xpm-lo-spec xpm-spec pbm-spec xbm-spec)
+		  (list pbm-spec xbm-spec xpm-lo-spec xpm-spec))))
+	 (image-sel (find-image
+		     (if (display-color-p)
+			 (tool-bar-set-file-extension
+			  (list png-spec xpm-lo-spec xpm-spec pbm-spec xbm-spec)
+			  "_sel")
+		       nil)))
+	 (image-dis (find-image
+		     (if (display-color-p)
+			 (tool-bar-set-file-extension
+			  (list png-spec xpm-lo-spec xpm-spec pbm-spec xbm-spec)
+			  "_dis")
+		       nil)))
+	 (images (when image ;; image may be nil if not found.
+		    (unless (image-mask-p image)
+ 		     (setq image (append image '(:mask heuristic))))
+		   (if (and image-sel image-dis)
+		       (progn		     
+			 (unless (image-mask-p image-sel)
+			   (setq image-sel (append image-sel 
+						   '(:mask heuristic))))
+			 (unless (image-mask-p image-dis)
+			   (setq image-dis (append image-dis 
+						   '(:mask heuristic))))
+			 (vector image-sel image image-dis image-dis))
+		     image)))) 
+    (cons image images)))
+
 ;;;###autoload
 (defun tool-bar-add-item (icon def key &rest props)
   "Add an item to the tool bar.
@@ -110,38 +181,28 @@ To define items in any other map, use `tool-bar-local-item'."
 ;;;###autoload
 (defun tool-bar-local-item (icon def key map &rest props)
   "Add an item to the tool bar in map MAP.
-ICON names the image, DEF is the key definition and KEY is a symbol
-for the fake function key in the menu keymap.  Remaining arguments
-PROPS are additional items to add to the menu item specification.  See
-Info node `(elisp)Tool Bar'.  Items are added from left to right.
+ICON names the image, or is structure of the form (IMG . LABEL),
+with the image name IMG, and a string with the label of the icon
+displayed in the tool-bar as LABEL. LABEL defaults to the symbol
+name of KEY.  DEF is the key definition and KEY is a symbol for
+the fake function key in the menu keymap Remaining arguments
+PROPS are additional items to add to the menu item specification.
+See Info node `(elisp)Tool Bar'. Items are added from left to
+right.
 
-ICON is the base name of a file containing the image to use.  The
-function will first try to use low-color/ICON.xpm if display-color-cells
-is less or equal to 256, then ICON.xpm, then ICON.pbm, and finally
-ICON.xbm, using `find-image'."
-  (let* ((fg (face-attribute 'tool-bar :foreground))
-	 (bg (face-attribute 'tool-bar :background))
-	 (colors (nconc (if (eq fg 'unspecified) nil (list :foreground fg))
-			(if (eq bg 'unspecified) nil (list :background bg))))
-	 (xpm-spec (list :type 'xpm :file (concat icon ".xpm")))
-	 (xpm-lo-spec (if (> (display-color-cells) 256)
-			  nil
-			(list :type 'xpm :file
-                              (concat "low-color/" icon ".xpm"))))
-	 (pbm-spec (append (list :type 'pbm :file
-                                 (concat icon ".pbm")) colors))
-	 (xbm-spec (append (list :type 'xbm :file
-                                 (concat icon ".xbm")) colors))
-	 (image (find-image
-		(if (display-color-p)
-		    (list xpm-lo-spec xpm-spec pbm-spec xbm-spec)
-		  (list pbm-spec xbm-spec xpm-lo-spec xpm-spec)))))
-
+ICON or IMG is the base name of a file containing the image to
+use. The function will first try to use low-color/ICON.xpm if
+display-color-cells is less or equal to 256, then ICON.xpm, then
+ICON.pbm, and finally ICON.xbm, using `find-image'."
+  (let* ((icon-name (if (consp icon) (car icon) icon))
+	 (label (if (consp icon) (cdr icon) ""))
+	 (is (tool-bar-get-image-spec icon-name))
+	 (image (car is))
+	 (images (cdr is))) 
     (when (and (display-images-p) image)
-      (unless (image-mask-p image)
-	(setq image (append image '(:mask heuristic))))
       (define-key-after map (vector key)
-	`(menu-item ,(symbol-name key) ,def :image ,image ,@props)))))
+	`(menu-item ,label 
+		    ,def :image ,images ,@props)))))
 
 ;;;###autoload
 (defun tool-bar-add-item-from-menu (command icon &optional map &rest props)
@@ -162,35 +223,26 @@ To define items in any other map, use `tool-bar-local-item-from-menu'."
 ;;;###autoload
 (defun tool-bar-local-item-from-menu (command icon in-map &optional from-map &rest props)
   "Define local tool bar binding for COMMAND using the given ICON.
-This makes a binding for COMMAND in IN-MAP, copying its binding from
-the menu bar in FROM-MAP (which defaults to `global-map'), but
-modifies the binding by adding an image specification for ICON.  It
-finds ICON just like `tool-bar-add-item'.  PROPS are additional
+ICON names the image, or is structure of the form (IMG . LABEL),
+with the image name IMG, and a string with the label of the icon
+displyed in the tool-bar as LABEL. This function creates a
+binding for COMMAND in IN-MAP, copying its binding from the menu
+bar in FROM-MAP (which defaults to `global-map'), but modifies
+the binding by adding an image specification for ICON. It finds
+ICON just like `tool-bar-add-item'. PROPS are additional
 properties to add to the binding.
 
 FROM-MAP must contain appropriate binding for `[menu-bar]' which
 holds a keymap."
   (unless from-map
     (setq from-map global-map))
-  (let* ((menu-bar-map (lookup-key from-map [menu-bar]))
+  (let* ((icon-name (if (consp icon) (car icon) icon))
+	 (label (if (consp icon) (cdr icon)))
+	 (menu-bar-map (lookup-key from-map [menu-bar]))
 	 (keys (where-is-internal command menu-bar-map))
-	 (fg (face-attribute 'tool-bar :foreground))
-	 (bg (face-attribute 'tool-bar :background))
-	 (colors (nconc (if (eq fg 'unspecified) nil (list :foreground fg))
-			(if (eq bg 'unspecified) nil (list :background bg))))
-	 (xpm-spec (list :type 'xpm :file (concat icon ".xpm")))
-	 (xpm-lo-spec (if (> (display-color-cells) 256)
-			  nil
-			(list :type 'xpm :file
-                              (concat "low-color/" icon ".xpm"))))
-	 (pbm-spec (append (list :type 'pbm :file
-                                 (concat icon ".pbm")) colors))
-	 (xbm-spec (append (list :type 'xbm :file
-                                 (concat icon ".xbm")) colors))
-	 (spec (if (display-color-p)
-		   (list xpm-lo-spec xpm-spec pbm-spec xbm-spec)
-		 (list pbm-spec xbm-spec xpm-lo-spec xpm-spec)))
-	 (image (find-image spec))
+	 (is (tool-bar-get-image-spec icon-name))
+	 (image (car is))
+	 (images (cdr is)) 
 	 submap key)
     (when (and (display-images-p) image)
       ;; We'll pick up the last valid entry in the list of keys if
@@ -210,12 +262,11 @@ holds a keymap."
 			key kk)))))
       (when (and (symbolp submap) (boundp submap))
 	(setq submap (eval submap)))
-      (unless (image-mask-p image)
-	(setq image (append image '(:mask heuristic))))
       (let ((defn (assq key (cdr submap))))
 	(if (eq (cadr defn) 'menu-item)
 	    (define-key-after in-map (vector key)
-	      (append (cdr defn) (list :image image) props))
+	      (append `(menu-item ,(or label (car (cddr defn)))) (cdddr defn) 
+		      (list :image image) props))
 	  (setq defn (cdr defn))
 	  (define-key-after in-map (vector key)
 	    (let ((rest (cdr defn)))
@@ -223,7 +274,7 @@ holds a keymap."
 	      ;; with a list of menu cache info, get rid of that.
 	      (if (and (consp rest) (consp (car rest)))
 		  (setq rest (cdr rest)))
-	      (append `(menu-item ,(car defn) ,rest)
+	      (append `(menu-item ,(or label (car defn)) ,rest)
 		      (list :image image) props))))))))
 
 ;;; Set up some global items.  Additions/deletions up for grabs.
@@ -232,16 +283,16 @@ holds a keymap."
   ;; People say it's bad to have EXIT on the tool bar, since users
   ;; might inadvertently click that button.
   ;;(tool-bar-add-item-from-menu 'save-buffers-kill-emacs "exit")
-  (tool-bar-add-item-from-menu 'find-file "new")
-  (tool-bar-add-item-from-menu 'menu-find-file-existing "open")
-  (tool-bar-add-item-from-menu 'dired "diropen")
+  (tool-bar-add-item-from-menu 'find-file '("new" . "New"))
+  (tool-bar-add-item-from-menu 'menu-find-file-existing '("open" . "Open"))
+  (tool-bar-add-item-from-menu 'dired '("diropen" . "Directory"))
   (tool-bar-add-item-from-menu 'kill-this-buffer "close")
-  (tool-bar-add-item-from-menu 'save-buffer "save" nil
+  (tool-bar-add-item-from-menu 'save-buffer '("save" . "Save") nil
 			       :visible '(or buffer-file-name
 					     (not (eq 'special
 						      (get major-mode
 							   'mode-class)))))
-  (tool-bar-add-item-from-menu 'write-file "saveas" nil
+  (tool-bar-add-item-from-menu 'write-file '("saveas" . "Save As") nil
 			       :visible '(or buffer-file-name
 					     (not (eq 'special
 						      (get major-mode
@@ -273,10 +324,10 @@ holds a keymap."
   ;; we must explicitly operate on the default value.
 
   (let ((tool-bar-map (default-value 'tool-bar-map)))
-    (tool-bar-add-item "preferences" 'customize 'customize
+    (tool-bar-add-item '("preferences" . "Customize") 'customize 'customize
 		       :help "Edit preferences (customize)")
 
-    (tool-bar-add-item "help" (lambda ()
+    (tool-bar-add-item '("help" . "Help") (lambda ()
 				(interactive)
 				(popup-menu menu-bar-help-menu))
 		       'help

@@ -208,7 +208,7 @@ may have changed\) back to `save-place-alist'."
   (let ((file (expand-file-name save-place-file))
         (coding-system-for-write 'emacs-mule))
     (save-excursion
-      (message "Saving places to %s..." file)
+      ;; (message "Saving places to %s..." file)
       (set-buffer (get-buffer-create " *Saved Places*"))
       (delete-region (point-min) (point-max))
       (when save-place-forget-unreadable-files
@@ -228,9 +228,10 @@ may have changed\) back to `save-place-alist'."
 	(condition-case nil
 	    ;; Don't use write-file; we don't want this buffer to visit it.
             (write-region (point-min) (point-max) file)
-	  (file-error (message "Can't write %s" file)))
+	  (file-error (message "Saving places: Can't write %s" file)))
         (kill-buffer (current-buffer))
-        (message "Saving places to %s...done" file)))))
+        ;;(message "Saving places to %s...done" file)
+	))))
 
 (defun load-save-place-alist-from-file ()
   (if (not save-place-loaded)

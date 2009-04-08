@@ -5881,8 +5881,7 @@ if `erc-away' is non-nil."
 	(let ((header (if erc-header-line-format
 			  (format-spec erc-header-line-format spec)
 			nil)))
-	  (cond ((null header)
-		 (setq header-line-format nil))
+	  (cond ((null header))
 		(erc-header-line-uses-help-echo-p
 		 (let ((help-echo (with-temp-buffer
 				    (insert header)
