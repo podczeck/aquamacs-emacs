@@ -1,24 +1,28 @@
 BUILDING AQUAMACS
 
 
-To build Aquamacs, ensure you have
+To build Aquamacs (Carbon / 22), ensure you have
 
 - Apple's free Developer Tools
+- the Aquamacs GIT repository (you have probably managed to do that).
+
+Also, you have probably already checked out the Aquamacs22 branch:
+
+git checkout Aquamacs22
 
 
-- from the Aquamacs tar ball or obtained separately:
-  - the GNU Emacs 22.1 (or later) source code in  Aquamacs/emacs.raw
-  - the Aquamacs source code in Aquamacs/aquamacs
-  - the build.sh script
+then, just do
 
-
- then, just do
-
-cd Aquamacs
-./build.sh
+./build-aquamacs.sh
 
 which will result in a compiled and packaged Aquamacs in builds/
 
+
+Note that when switching between git branches (e.g. from master), you may need to do a 
+
+make maintainer-clean
+
+in order to the get compile process to work.
 
 Questions?
 
@@ -26,4 +30,4 @@ Questions?
 
 
 
-- David Reitter, 10/2007
+- David Reitter, 04/2009

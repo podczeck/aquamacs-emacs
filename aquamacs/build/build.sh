@@ -59,6 +59,7 @@ fi
 cd ${AQ_PREFIX}
 
 export AQUAMACS_ROOT=`pwd`/aquamacs
+echo "Aquamacs Root Dir: ${AQUAMACS_ROOT}"
 # EMACS_ROOT is set separately for each compile run
  
 mkdir builds 2>/dev/null
@@ -103,6 +104,8 @@ if test "${BUILD_AQUAMACS}" == "yes"; then
     fi
 
     export EMACS_ROOT=`pwd`
+    echo "Emacs Root Dir: ${EMACS_ROOT}"
+
     cd aquamacs
 
     # -g -> debug symbols
@@ -120,7 +123,7 @@ if test "${BUILD_AQUAMACS}" == "yes"; then
 
     export MACOSX_DEPLOYMENT_TARGET=10.4
 
-    cd ${AQ_PREFIX}/emacs/mac
+    cd ${EMACS_ROOT}/mac
     echo "Building Emacs (make-aquamacs ${BPAR})..." >>$LOG 
 
     ${AQUAMACS_ROOT}/build/make-aquamacs ${BPAR} >>$LOG 2>>$LOG 
@@ -128,7 +131,7 @@ if test "${BUILD_AQUAMACS}" == "yes"; then
     rm -rf "${DEST}/Aquamacs Emacs.app"  >>$LOG 2>>$LOG 
 #    ${AQUAMACS_ROOT}/build/install-aquamacs "${AQUAMACS_ROOT}" 
 #"${DEST}/Aquamacs Emacs.app" "Aquamacs-Raw/Emacs.app"  >>$LOG 2>>$LOG 
-    cd ${AQ_PREFIX}/emacs/mac	
+    cd ${EMACS_ROOT}/mac	
     mv "Aquamacs/Aquamacs Emacs.app" "${DEST}/" >>$LOG 2>>LOG
 
     NAME=Aquamacs-$DATE
