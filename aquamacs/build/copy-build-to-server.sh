@@ -6,7 +6,7 @@
 GNUNAME=GNU-Emacs-$2.dmg.bz2
 NAME=Aquamacs-$1.tar.bz2
 COPYORLINK='cp'  # 'ln -s'
-CHGLOGSCRIPT=~/aquamacs-web/scripts/push-nightly-changelog.sh
+#CHGLOGSCRIPT=~/aquamacs-web/scripts/push-nightly-changelog.sh
 
 
 SOURCE=`pwd`/builds
@@ -47,8 +47,9 @@ if [ -e $TMP/${NAME} ]; then
         cp aquamacs-build.log latest-logs/ 2>/dev/null
 
         # update the change log 
-        cd `dirname $CHGLOGSCRIPT` ; $CHGLOGSCRIPT
-        cd $DEST
+# do not overwrite the master branch
+#        cd `dirname $CHGLOGSCRIPT` ; $CHGLOGSCRIPT
+#        cd $DEST
 
 
     else
