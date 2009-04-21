@@ -9,21 +9,11 @@ COPYORLINK='cp'  # 'ln -s'
 CHGLOGSCRIPT='~/aquamacs-web/scripts/push-nightly-changelog.sh'
 
 
+SOURCE=`pwd`/builds
+LOGPATH=`pwd`
 
-if [ "$2" == "intel" ];
-then
-     
-    SOURCE=`pwd`/builds
-    LOGPATH=`pwd`
+DEST=~/Sites/Aquamacs/22
 
-    DEST=~/Sites/Aquamacs/intel
-else
-    SOURCE=`pwd`/builds
-    LOGPATH=`pwd`
-
-    DEST=~/Sites/Aquamacs
-
-fi
 
 TMP=/tmp/builds
 
@@ -56,9 +46,10 @@ if [ -e $TMP/${NAME} ]; then
         # copy the downloaded log for this step into "latest" because the build worked
         cp aquamacs-build.log latest-logs/ 2>/dev/null
 
-	# update the change log 
+        # update the change log 
+        cd `dirname $CHGLOGSCRIPT` ; $CHGLOGSCRIPT
+        cd $DEST
 
-        $CHGLOGSCRIPT
 
     else
         rm -r $TMP 
