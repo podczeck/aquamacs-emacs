@@ -18,7 +18,7 @@ do
 	    ;;
 	c)	COPY='copy-to-server'
 	    ;;
-	?)	printf "Usage:  %s [-l] [-c] {aquamacs|plugins} [<build-parameters>]\nExpects directories ./aquamacs and ./emacs.raw (by default),\nso call from top-level directory.\n\n" $(basename $0) >&2
+	?)	printf "Usage:  %s [-l] [-c] {aquamacs|plugins} [<build-parameters.]\n" $(basename $0) >&2
 	    exit 2
 	    ;;
     esac
@@ -147,6 +147,7 @@ if test "${BUILD_AQUAMACS}" == "yes"; then
 	echo "Build failed."
     fi
 
+    cd ${AQ_PREFIX}
     # copy to web dir (logs, build)
     # done even if build failed so that the GNU Emacs build is copied
     if test "$COPY" == "copy-to-server"; then
