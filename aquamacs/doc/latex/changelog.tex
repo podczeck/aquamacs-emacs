@@ -18,6 +18,9 @@ Reported by Chris Bernard.
 \item Fixed a rare failure of dired to view directories.
 Reported by Uwe Pieczynski.
 
+\item Fixed a startup failure when environment variables with  values where used that could no be encoded with the coding system assigned to the system's ``input source'' language.  (`locale-coding-system' is now set according to the locale in the default login shell.)
+Reported by André Berg.
+
 \item Fixed a potential security hole in smtpmail.
 Code by Simon Josefsson.
 
