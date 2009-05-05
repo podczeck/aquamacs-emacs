@@ -4,6 +4,9 @@
 
 \subsection{Changes--- 1.8dev}
 
+{\color{red} Interested in trying out the Emacs 23 Cocoa version of Aquamacs?  We're still working on it, but we're also already working with it. 
+\url{http://aquamacs.org/nightlies.shtml}}
+
 \begin{itemize}
 
 \item Tabs are now directly accessible using keys A-M-1,2,3...9,0 (normally: Command-Option-1,2,3...9,0).  The number of each tabs is marked.  For configuration, see the new customization variable `tabbar-show-key-bindings' and the function `tabbar-define-access-keys'.   For instance, use {\tt (tabbar-define-access-keys '(alt))} in your {\tt Preferences.el} file to use Command-1,2,3.. bindings.
@@ -18,7 +21,7 @@ Reported by Chris Bernard.
 \item Fixed a rare failure of dired to view directories.
 Reported by Uwe Pieczynski.
 
-\item Fixed a startup failure when environment variables with  values where used that could no be encoded with the coding system assigned to the system's ``input source'' language.  (`locale-coding-system' is now set according to the locale in the default login shell.)
+\item Fixed a startup failure when environment variables with values where used that could no be encoded with the coding system assigned to the system's ``input source'' language.  (`locale-coding-system' is now set according to the locale in the default login shell.)
 Reported by André Berg.
 
 \item Fixed a potential security hole in smtpmail.
@@ -27,6 +30,8 @@ Code by Simon Josefsson.
 \item `LaTex-mode-hook' can now be customized and saved through the
   customization interface.
 Reported by Bruno Cadonna.
+
+\item ESS (R-mode) will now retain an active mark (and region) after evaluating code, e.g. with C-c C-r.  
 
 \end{itemize}
 
