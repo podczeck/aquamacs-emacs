@@ -547,8 +547,11 @@ fontset_find_font (fontset, c, face, id, fallback)
 	for (i = 0; i < ASIZE (vec); i++)
 	  {
 	    Lisp_Object rfont_def = AREF (vec, i);
-	    Lisp_Object repertory
-	      = FONT_DEF_REPERTORY (RFONT_DEF_FONT_DEF (rfont_def));
+	    Lisp_Object repertory;
+
+	    if (NILP (rfont_def))
+	      break;
+	    repertory = FONT_DEF_REPERTORY (RFONT_DEF_FONT_DEF (rfont_def));
 
 	    if (XINT (repertory) == id)
 	      {
@@ -628,6 +631,8 @@ fontset_find_font (fontset, c, face, id, fallback)
       for (i++; i < ASIZE (vec); i++)
 	{
 	  rfont_def = AREF (vec, i);
+	  if (NILP (rfont_def))
+	    return Qt;
 	  if (! EQ (RFONT_DEF_FONT_DEF (rfont_def), font_def))
 	    break;
 	  font_object = RFONT_DEF_OBJECT (AREF (vec, i));
@@ -686,7 +691,7 @@ fontset_font (fontset, c, face, id)
   if (VECTORP (rfont_def))
     return rfont_def;
   if (EQ (rfont_def, Qt))
-    return Qnil;
+    goto no_font;
 
   /* Try a font-group of the default fontset. */
   base_fontset = FONTSET_BASE (fontset);
@@ -699,7 +704,7 @@ fontset_font (fontset, c, face, id)
       if (VECTORP (rfont_def))
 	return rfont_def;
       if (EQ (rfont_def, Qt))
-	return Qnil;
+	goto no_font;
     }
 
   /* Try a fallback font-group of FONTSET. */
@@ -707,7 +712,7 @@ fontset_font (fontset, c, face, id)
   if (VECTORP (rfont_def))
     return rfont_def;
   if (EQ (rfont_def, Qt))
-    return Qnil;
+    goto no_font;
 
   /* Try a fallback font-group of the default fontset . */
   if (! EQ (base_fontset, Vdefault_fontset))
@@ -717,6 +722,7 @@ fontset_font (fontset, c, face, id)
 	return rfont_def;
     }
 
+ no_font:
   /* Remember that we have no font for C.  */
   FONTSET_SET (fontset, make_number (c), Qt);
 
@@ -762,23 +768,6 @@ make_fontset (frame, name, base)
   ASET (Vfontset_table, id, fontset);
   next_fontset_id = id + 1;
   return fontset;
-}
-
-
-/* Set the ASCII font of the default fontset to FONTNAME if that is
-   not yet set.  */
-void
-set_default_ascii_font (fontname)
-     Lisp_Object fontname;
-{
-  if (! STRINGP (FONTSET_ASCII (Vdefault_fontset)))
-    {
-      int id = fs_query_fontset (fontname, 2);
-
-      if (id >= 0)
-	fontname = FONTSET_ASCII (FONTSET_FROM_ID (id));
-      FONTSET_ASCII (Vdefault_fontset)= fontname;
-    }
 }
 
 
@@ -1729,7 +1718,14 @@ static Lisp_Object auto_fontset_alist;
 /* Number of automatically created fontsets.  */
 static int num_auto_fontsets;
 
-/* Retun a fontset synthesized from FONT-OBJECT.  */
+/* Retun a fontset synthesized from FONT-OBJECT.  This is called from
+   x_new_font when FONT-OBJECT is used for the default ASCII font of a
+   frame, and the returned fontset is used for the default fontset of
+   that frame.  The fontset specifies a font of the same registry as
+   FONT-OBJECT for all characters in the repertory of the registry
+   (see Vfont_encoding_alist).  If the repertory is not known, the
+   fontset specifies the font for all Latin characters assuming that a
+   user intends to use FONT-OBJECT for Latin characters.  */
 
 int
 fontset_from_font (font_object)
@@ -1765,17 +1761,19 @@ fontset_from_font (font_object)
   alias = Fdowncase (AREF (font_object, FONT_NAME_INDEX));
   Vfontset_alias_alist = Fcons (Fcons (name, alias), Vfontset_alias_alist);
   auto_fontset_alist = Fcons (Fcons (font_spec, fontset), auto_fontset_alist);
-  font_spec = Fcopy_font_spec (font_spec);
-  for (i = FONT_WEIGHT_INDEX; i < FONT_EXTRA_INDEX; i++)
-    ASET (font_spec, i, Qnil);
-  Fset_fontset_font (name, Qlatin, font_spec, Qnil, Qnil);
-  Fset_fontset_font (name, Qnil, font_spec, Qnil, Qnil);
-  if (!EQ (registry, Qiso10646_1))
-    {
-      font_spec = Fcopy_font_spec (font_spec);
-      ASET (font_spec, FONT_REGISTRY_INDEX, Qiso10646_1);
-      Fset_fontset_font (name, Qlatin, font_spec, Qnil, Qappend);
-    }
+  font_spec = Ffont_spec (0, NULL);
+  ASET (font_spec, FONT_REGISTRY_INDEX, registry);
+  {
+    Lisp_Object target = find_font_encoding (SYMBOL_NAME (registry));
+
+    if (CONSP (target))
+      target = XCDR (target);
+    if (! CHARSETP (target))
+      target = Qlatin;
+    Fset_fontset_font (name, target, font_spec, Qnil, Qnil);
+    Fset_fontset_font (name, Qnil, font_spec, Qnil, Qnil);
+  }
+
   FONTSET_ASCII (fontset) = font_name;
 
 #ifdef HAVE_NS
@@ -1880,7 +1878,8 @@ DEFUN ("internal-char-font", Finternal_char_font, Sinternal_char_font, 1, 2, 0,
 	return Qnil;
       w = XWINDOW (window);
       f = XFRAME (w->frame);
-      face_id = face_at_buffer_position (w, pos, -1, -1, &dummy, pos + 100, 0);
+      face_id = face_at_buffer_position (w, pos, -1, -1, &dummy,
+					 pos + 100, 0, -1);
       charset = Fget_char_property (position, Qcharset, Qnil);
       if (CHARSETP (charset))
 	cs_id = XINT (CHARSET_SYMBOL_ID (charset));

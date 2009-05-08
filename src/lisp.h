@@ -2455,9 +2455,9 @@ extern Lisp_Object Qinhibit_modification_hooks;
 extern void move_gap (EMACS_INT);
 extern void move_gap_both (EMACS_INT, EMACS_INT);
 extern void make_gap (EMACS_INT);
-extern int copy_text (const unsigned char *, unsigned char *,
-		      EMACS_INT, int, int);
-extern int count_size_as_multibyte (const unsigned char *, EMACS_INT);
+extern EMACS_INT copy_text (const unsigned char *, unsigned char *,
+			    EMACS_INT, int, int);
+extern EMACS_INT count_size_as_multibyte (const unsigned char *, EMACS_INT);
 extern int count_combining_before (const unsigned char *,
 				   EMACS_INT, EMACS_INT, EMACS_INT);
 extern int count_combining_after (const unsigned char *,
@@ -2486,8 +2486,8 @@ extern void del_range_both (EMACS_INT, EMACS_INT, EMACS_INT, EMACS_INT, int);
 extern Lisp_Object del_range_2 (EMACS_INT, EMACS_INT,
 				EMACS_INT, EMACS_INT, int);
 extern void modify_region (struct buffer *, EMACS_INT, EMACS_INT, int);
-extern void prepare_to_modify_buffer (EMACS_INT, EMACS_INT, int *);
-extern void signal_before_change (EMACS_INT, EMACS_INT, int *);
+extern void prepare_to_modify_buffer (EMACS_INT, EMACS_INT, EMACS_INT *);
+extern void signal_before_change (EMACS_INT, EMACS_INT, EMACS_INT *);
 extern void signal_after_change (EMACS_INT, EMACS_INT, EMACS_INT);
 extern void adjust_after_replace (EMACS_INT, EMACS_INT, Lisp_Object,
 				  EMACS_INT, EMACS_INT);
@@ -2969,11 +2969,12 @@ extern int fast_c_string_match_ignore_case P_ ((Lisp_Object, const char *));
 extern int fast_string_match_ignore_case P_ ((Lisp_Object, Lisp_Object));
 extern EMACS_INT fast_looking_at P_ ((Lisp_Object, EMACS_INT, EMACS_INT,
 				      EMACS_INT, EMACS_INT, Lisp_Object));
-extern int scan_buffer P_ ((int, int, int, int, int *, int));
-extern int scan_newline P_ ((int, int, int, int, int, int));
-extern int find_next_newline P_ ((int, int));
-extern int find_next_newline_no_quit P_ ((int, int));
-extern int find_before_next_newline P_ ((int, int, int));
+extern int scan_buffer P_ ((int, EMACS_INT, EMACS_INT, int, int *, int));
+extern int scan_newline P_ ((EMACS_INT, EMACS_INT, EMACS_INT, EMACS_INT,
+			     int, int));
+extern int find_next_newline P_ ((EMACS_INT, int));
+extern int find_next_newline_no_quit P_ ((EMACS_INT, int));
+extern int find_before_next_newline P_ ((EMACS_INT, EMACS_INT, int));
 extern void syms_of_search P_ ((void));
 extern void clear_regexp_cache P_ ((void));
 
@@ -3061,7 +3062,6 @@ extern void init_keyboard P_ ((void));
 extern void syms_of_keyboard P_ ((void));
 extern void keys_of_keyboard P_ ((void));
 extern char *push_key_description P_ ((unsigned int, char *, int));
-extern void add_user_signal P_ ((int sig, const char *name));
 
 
 /* defined in indent.c */
@@ -3330,6 +3330,7 @@ EXFUN (Fx_focus_frame, 1);
 
 /* Defined in xfaces.c */
 EXFUN (Fclear_face_cache, 1);
+EXFUN (Fx_load_color_file, 1);
 extern void syms_of_xfaces P_ ((void));
 
 #ifndef HAVE_GETLOADAVG

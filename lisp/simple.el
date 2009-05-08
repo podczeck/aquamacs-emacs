@@ -1359,7 +1359,6 @@ this by calling a function defined by `minibuffer-default-add-function'.")
   "Return a list of all completions without the default value.
 This function is used to add all elements of the completion table to
 the end of the list of defaults just after the default value."
-  (interactive)
   (let ((def minibuffer-default)
 	(all (all-completions ""
 			      minibuffer-completion-table
@@ -3761,20 +3760,20 @@ shift-translation."
   :group 'editing-basics)
 
 (defun handle-shift-selection ()
-  "Activate/deactivate mark depending on invocation thru ``shift translation.''
+  "Activate/deactivate mark depending on invocation thru shift translation.
+This function is called by `call-interactively' when a command
+with a `^' character in its `interactive' spec is invoked, before
+running the command itself.
 
-\(See `this-command-keys-shift-translated' for the meaning of
-shift translation.)
+If `shift-select-mode' is enabled and the command was invoked
+through shift translation, set the mark and activate the region
+temporarily, unless it was already set in this way.  See
+`this-command-keys-shift-translated' for the meaning of shift
+translation.
 
-This is called whenever a command with a `^' character in its
-`interactive' spec is invoked.
-Its behavior is controlled by `shift-select-mode'.
-
-If the command was invoked through shift translation, set the
-mark and activate the region temporarily, unless it was already
-set in this way.  If the command was invoked without shift
-translation, or if the region was activated by the mouse,
-deactivate the mark if the region is temporarily active."
+Otherwise, if the region has been activated temporarily,
+deactivate it, and restore the variable `transient-mark-mode' to
+its earlier value."
   (cond ((and shift-select-mode this-command-keys-shift-translated)
          (unless (and mark-active
                       (eq (car-safe transient-mark-mode) 'only))
@@ -4057,24 +4056,31 @@ into account variable-width characters and line continuation."
 ;; Arg says how many lines to move.  The value is t if we can move the
 ;; specified number of lines.
 (defun line-move-visual (arg &optional noerror)
-  (unless (and (floatp temporary-goal-column)
-	       (or (memq last-command '(next-line previous-line))
-		   ;; In case we're called from some other command.
-		   (eq last-command this-command)))
-    (let ((posn (posn-at-point))
-	  x)
+  (let ((posn (posn-at-point))
+	(opoint (point))
+	x)
+    ;; Reset temporary-goal-column, unless the previous command was a
+    ;; line-motion command or we were called from some other command.
+    (unless (and (floatp temporary-goal-column)
+		 (memq last-command `(next-line previous-line ,this-command)))
       (cond ((eq (nth 1 posn) 'right-fringe) ; overflow-newline-into-fringe
 	     (setq temporary-goal-column (- (window-width) 1)))
-	    ((setq x (car (nth 2 posn)))
-	     (setq temporary-goal-column (/ (float x) (frame-char-width)))))))
-  (or (= (vertical-motion
-	  (cons (or goal-column (truncate temporary-goal-column)) arg))
-	 arg)
-      (unless noerror
-	(signal (if (< arg 0)
-		    'beginning-of-buffer
-		  'end-of-buffer)
-		nil))))
+	    ((setq x (car (posn-x-y posn)))
+	     (setq temporary-goal-column (/ (float x) (frame-char-width))))))
+    ;; Move using `vertical-motion'.
+    (or (and (= (vertical-motion
+		 (cons (or goal-column (truncate temporary-goal-column)) arg))
+		arg)
+	     (or (>= arg 0)
+		 (/= (point) opoint)
+		 ;; If the goal column lies on a display string,
+		 ;; `vertical-motion' advances the cursor to the end
+		 ;; of the string.  For arg < 0, this can cause the
+		 ;; cursor to get stuck.  (Bug#3020).
+		 (= (vertical-motion arg) arg)))
+	(unless noerror
+	  (signal (if (< arg 0) 'beginning-of-buffer 'end-of-buffer)
+		  nil)))))
 
 ;; This is the guts of next-line and previous-line.
 ;; Arg says how many lines to move.
@@ -5009,6 +5015,10 @@ unless optional argument SOFT is non-nil."
 Some major modes set this.")
 
 (put 'auto-fill-function :minor-mode-function 'auto-fill-mode)
+;; `functions' and `hooks' are usually unsafe to set, but setting
+;; auto-fill-function to nil in a file-local setting is safe and
+;; can be useful to prevent auto-filling.
+(put 'auto-fill-function 'safe-local-variable 'null)
 ;; FIXME: turn into a proper minor mode.
 ;; Add a global minor mode version of it.
 (defun auto-fill-mode (&optional arg)
@@ -5611,6 +5621,7 @@ With a prefix argument, set VARIABLE to VALUE buffer-locally."
     (define-key map "\e\e\e" 'delete-completion-window)
     (define-key map [left] 'previous-completion)
     (define-key map [right] 'next-completion)
+    (define-key map "q" 'quit-window)
     map)
   "Local map for completion list buffers.")
 

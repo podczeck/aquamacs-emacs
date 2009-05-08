@@ -1,3 +1,58 @@
+2009-05-07  Chong Yidong  <cyd@stupidchicken.com>
+
+	* files.texi (Visiting): Copyedits.
+
+2009-05-06  Chong Yidong  <cyd@stupidchicken.com>
+
+	* basic.texi (Inserting Text): Document ucs-insert.
+
+	* mule.texi (International Chars): Define "multibyte".  Note that
+	internal representation is unicode-based.  Simplify definition of raw
+	bytes.  Mention ucs-insert.
+	(Enabling Multibyte): Remove obsolete discussion.  Copyedits.
+	(Language Environments): Add language environments new to Emacs 23.
+	(Multibyte Conversion): Node deleted.
+	(Coding Systems): Remove obsolete unify-8859-on-decoding-mode.  Don't
+	mention obsolete emacs-mule coding system.
+	(Output Coding): Copyedits.
+
+	* emacs.texi (Top): Update node listing.
+
+2009-05-05  Per Starbäck  <per@starback.se>  (tiny change)
+
+	* trouble.texi (Lossage): Use new binding of view-emacs-problems.
+
+2009-04-28  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* building.texi (Lisp Libraries): `load-library' does offer completion.
+
+2009-04-28  Chong Yidong  <cyd@stupidchicken.com>
+
+	* frames.texi (Text-Only Mouse): Mention gpm-mouse-mode instead of
+	t-mouse-mode.  Suggested by Per Starbäck (Bug#3126).
+
+2009-04-25  Eli Zaretskii  <eliz@gnu.org>
+
+	* maintaining.texi (Tags): Clarify text.  (Bug#3101)
+
+2009-04-22  Chong Yidong  <cyd@stupidchicken.com>
+
+	* entering.texi (Entering Emacs): Document initial-buffer-choice.
+
+	* building.texi (Lisp Interaction): Document initial-scratch-message.
+
+2009-04-18  Juanma Barranquero  <lekktu@gmail.com>
+
+	* msdog.texi (Windows Fonts): Fix typos.
+
+	* files.texi (Save Commands): Fix pxref.
+
+2009-04-18  Chong Yidong  <cyd@stupidchicken.com>
+
+	* files.texi (Save Commands): Mention diff-buffer-with-file.
+	(Comparing Files): Document diff-buffer-with-file.  Suggested by Magnus
+	Henoch (Bug#3036).
+
 2009-03-15  Glenn Morris  <rgm@gnu.org>
 
 	* sending.texi (Mail Format): Replace "Sender" with "Message-Id", since
@@ -42,7 +97,7 @@
 	Mention fortune-file.
 	(Mail Methods): Mention read-mail-command.
 
-2009-03-14  David Reitter <david.reitter@gmail.com>
+2009-03-14  David Reitter  <david.reitter@gmail.com>
 
 	* macos.texi (Mac / GNUstep Basics): Remove references to Prefs panel
 	and NS resources following recent changes.

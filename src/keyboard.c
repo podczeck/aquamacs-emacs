@@ -2048,20 +2048,20 @@ adjust_point_for_property (last_pt, modified)
 
 	  /* Find boundaries `beg' and `end' of the invisible area, if any.  */
 	  while (end < ZV
-		 /* Stop if we find a spot between two runs of
-		    `invisible' where inserted text would be visible.
-		    This is important when we have two invisible
-		    boundaries that enclose an area: if the area is
-		    empty, we need this test in order to make it
-		    possible to place point in the middle rather than
-		    skip both boundaries.
-		    Note that this will stop anywhere in a non-sticky
-		    text-property, but I don't think there's much we
-		    can do about that.  */
+#if 0
+		 /* FIXME: We should stop if we find a spot between
+		    two runs of `invisible' where inserted text would
+		    be visible.  This is important when we have two
+		    invisible boundaries that enclose an area: if the
+		    area is empty, we need this test in order to make
+		    it possible to place point in the middle rather
+		    than skip both boundaries.  However, this code
+		    also stops anywhere in a non-sticky text-property,
+		    which breaks (e.g.) Org mode.  */
 		 && (val = get_pos_property (make_number (end),
 					     Qinvisible, Qnil),
 		     TEXT_PROP_MEANS_INVISIBLE (val))
-		 /* FIXME: write and then use get_pos_property_and_overlay.  */
+#endif
 		 && !NILP (val = get_char_property_and_overlay
 		           (make_number (end), Qinvisible, Qnil, &overlay))
 		 && (inv = TEXT_PROP_MEANS_INVISIBLE (val)))
@@ -2075,9 +2075,11 @@ adjust_point_for_property (last_pt, modified)
 	      end = NATNUMP (tmp) ? XFASTINT (tmp) : ZV;
 	    }
 	  while (beg > BEGV
+#if 0
 		 && (val = get_pos_property (make_number (beg),
 					     Qinvisible, Qnil),
 		     TEXT_PROP_MEANS_INVISIBLE (val))
+#endif
 		 && !NILP (val = get_char_property_and_overlay
 		           (make_number (beg - 1), Qinvisible, Qnil, &overlay))
 		 && (inv = TEXT_PROP_MEANS_INVISIBLE (val)))
@@ -4489,7 +4491,7 @@ struct input_event last_timer_event;
 
 /* List of elisp functions to call, delayed because they were generated in
    a context where Elisp could not be safely run (e.g. redisplay, signal,
-   ...).  Each lement has the form (FUN . ARGS).  */
+   ...).  Each element has the form (FUN . ARGS).  */
 Lisp_Object pending_funcalls;
 
 extern Lisp_Object Qapply;
@@ -11324,8 +11326,8 @@ specially interpreting the top bit.
 This setting only has an effect on tty terminal devices.
 
 Optional parameter TERMINAL specifies the tty terminal device to use.
-It may be a terminal id, a frame, or nil for the terminal used by the
-currently selected frame.
+It may be a terminal object, a frame, or nil for the terminal used by
+the currently selected frame.
 
 See also `current-input-mode'.  */)
        (meta, terminal)
@@ -11679,6 +11681,7 @@ init_keyboard ()
     (*keyboard_init_hook) ();
 
 #ifdef POLL_FOR_INPUT
+  poll_timer = NULL;
   poll_suppress_count = 1;
   start_polling ();
 #endif
@@ -11708,6 +11711,7 @@ void
 syms_of_keyboard ()
 {
   pending_funcalls = Qnil;
+  staticpro (&pending_funcalls);
 
   Vlispy_mouse_stem = build_string ("mouse");
   staticpro (&Vlispy_mouse_stem);
@@ -12331,7 +12335,7 @@ This is used mainly for mapping ASCII function key sequences into
 real Emacs function key events (symbols).
 
 The `read-key-sequence' function replaces any subsequence bound by
-`input-key-map' with its binding.  Contrary to `function-key-map',
+`input-decode-map' with its binding.  Contrary to `function-key-map',
 this map applies its rebinding regardless of the presence of an ordinary
 binding.  So it is more like `key-translation-map' except that it applies
 before `function-key-map' rather than after.

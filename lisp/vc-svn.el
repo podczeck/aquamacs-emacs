@@ -157,14 +157,14 @@ want to force an empty list of arguments, use t."
 (defun vc-svn-after-dir-status (callback &optional remote)
   (let ((state-map '((?A . added)
                      (?C . conflict)
-                     (?D . removed)
                      (?I . ignored)
                      (?M . edited)
+                     (?D . removed)
                      (?R . removed)
                      (?? . unregistered)
                      ;; This is what vc-svn-parse-status does.
                      (?~ . edited)))
-	(re (if remote "^\\(.\\)..... \\([ *]\\) +\\(?:[-0-9]+\\)? +\\(.*\\)$"
+	(re (if remote "^\\(.\\)..... \\([ *]\\) +\\(?:[-0-9]+\\)?   \\(.*\\)$"
 	      ;; Subexp 2 is a dummy in this case, so the numbers match.
 	      "^\\(.\\)....\\(.\\) \\(.*\\)$"))
        result)
@@ -176,7 +176,7 @@ want to force an empty list of arguments, use t."
 	     ;; FIXME are there other possible combinations?
 	     (cond ((eq state 'edited) (setq state 'needs-merge))
 		   ((not state) (setq state 'needs-update))))
-       (when state
+	(when (and state (not (string= "." filename)))
          (setq result (cons (list filename state) result)))))
     (funcall callback result)))
 
@@ -662,7 +662,7 @@ information about FILENAME and return its status."
 	     'edited))
 	  ((eq status ?I)
 	   (vc-file-setprop file 'vc-state 'ignored))
-	  ((eq status ?R)
+	  ((memq status '(?D ?R))
 	   (vc-file-setprop file 'vc-state 'removed))
 	  (t 'edited)))))
     (when filename (vc-file-getprop filename 'vc-state))))

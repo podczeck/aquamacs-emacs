@@ -371,11 +371,13 @@ argument VECP, this copies vectors as well as conses."
 
 (defun assoc-default (key alist &optional test default)
   "Find object KEY in a pseudo-alist ALIST.
-ALIST is a list of conses or objects.  Each element (or the element's car,
-if it is a cons) is compared with KEY by evaluating (TEST (car elt) KEY).
-If that is non-nil, the element matches;
-then `assoc-default' returns the element's cdr, if it is a cons,
-or DEFAULT if the element is not a cons.
+ALIST is a list of conses or objects.  Each element
+ (or the element's car, if it is a cons) is compared with KEY by
+ calling TEST, with two arguments: (i) the element or its car,
+ and (ii) KEY.
+If that is non-nil, the element matches; then `assoc-default'
+ returns the element's cdr, if it is a cons, or DEFAULT if the
+ element is not a cons.
 
 If no element matches, the value is nil.
 If TEST is omitted or nil, `equal' is used."
@@ -930,13 +932,19 @@ and `event-end' functions."
       (cons (scroll-bar-scale pair (window-width window)) 0))
      (t
       (let* ((frame (if (framep window) window (window-frame window)))
-	     (x (/ (car pair) (frame-char-width frame)))
-	     (y (/ (cdr pair) (+ (frame-char-height frame)
-				 (or (frame-parameter frame 'line-spacing)
-                                     ;; FIXME: Why the `default'?
-				     (default-value 'line-spacing)
-				     0)))))
-	(cons x y))))))
+	     ;; FIXME: This should take line-spacing properties on
+	     ;; newlines into account.
+	     (spacing (when (display-graphic-p frame)
+			(or (with-current-buffer (window-buffer window)
+			      line-spacing)
+			    (frame-parameter frame 'line-spacing)))))
+	(cond ((floatp spacing)
+	       (setq spacing (truncate (* spacing
+					  (frame-char-height frame)))))
+	      ((null spacing)
+	       (setq spacing 0)))
+	(cons (/ (car pair) (frame-char-width frame))
+	      (/ (cdr pair) (+ (frame-char-height frame) spacing))))))))
 
 (defun posn-actual-col-row (position)
   "Return the actual column and row in POSITION, measured in characters.

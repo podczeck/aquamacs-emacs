@@ -742,13 +742,14 @@ PATH-AND-SUFFIXES is a pair of lists, (DIRECTORIES . SUFFIXES)."
 (make-obsolete 'locate-file-completion 'locate-file-completion-table "23.1")
 
 (defvar locate-dominating-stop-dir-regexp
-  "\\`\\(?:[\\/][\\/]\\|/\\(?:net\\|afs\\|\\.\\.\\.\\)/\\)\\'"
+  "\\`\\(?:[\\/][\\/][^\\/]+\\|/\\(?:net\\|afs\\|\\.\\.\\.\\)/\\)\\'"
   "Regexp of directory names which stop the search in `locate-dominating-file'.
 Any directory whose name matches this regexp will be treated like
 a kind of root directory by `locate-dominating-file' which will stop its search
 when it bumps into it.
 The default regexp prevents fruitless and time-consuming attempts to find
-special files in directories in which filenames are interpreted as hostnames.")
+special files in directories in which filenames are interpreted as hostnames,
+or mount points potentially requiring authentication as a different user.")
 
 ;; (defun locate-dominating-files (file regexp)
 ;;   "Look up the directory hierarchy from FILE for a file matching REGEXP.
@@ -828,12 +829,11 @@ Return nil if COMMAND is not found anywhere in `exec-path'."
   (locate-file command exec-path exec-suffixes 1))
 
 (defun load-library (library)
-  "Load the library named LIBRARY.
-
-LIBRARY should be a relative file name of the library, a string.
-It can omit the suffix (a.k.a. file-name extension).
-
-This is an interface to the function `load'."
+  "Load the Emacs Lisp library named LIBRARY.
+This is one of two interfaces (the other being `load-file') to the underlying
+function `load'.  The library actually loaded is searched for in `load-path'
+with or without the `load-suffixes' (as well as `load-file-rep-suffixes').
+See Info node `(emacs)Lisp Libraries' for more details."
   (interactive
    (list (completing-read "Load library: "
 			  (apply-partially 'locate-file-completion-table
@@ -2898,7 +2898,8 @@ and VAL is the specified value."
 	       (let ((key (intern (match-string 1)))
 		     (val (save-restriction
 			    (narrow-to-region (point) end)
-			    (read (current-buffer)))))
+			    (let ((read-circle nil))
+			      (read (current-buffer))))))
 		 ;; It is traditional to ignore
 		 ;; case when checking for `mode' in set-auto-mode,
 		 ;; so we must do that here as well.
@@ -3044,12 +3045,14 @@ is specified, returning t if it is specified."
 		  (if (eolp) (error "Missing colon in local variables entry"))
 		  (skip-chars-backward " \t")
 		  (let* ((str (buffer-substring beg (point)))
-			 (var (read str))
+			 (var (let ((read-circle nil))
+				(read str)))
 			 val)
 		    ;; Read the variable value.
 		    (skip-chars-forward "^:")
 		    (forward-char 1)
-		    (setq val (read (current-buffer)))
+		    (let ((read-circle nil))
+		      (setq val (read (current-buffer))))
 		    (if mode-only
 			(if (eq var 'mode)
 			    (setq result t))
@@ -3184,10 +3187,19 @@ already the major mode."
 ;;; Handling directory-local variables, aka project settings.
 
 (defvar dir-locals-class-alist '()
-  "Alist mapping class names (symbols) to variable lists.")
+  "Alist mapping directory-local variable classes (symbols) to variable lists.")
 
-(defvar dir-locals-directory-alist '()
-  "Alist mapping directory roots to variable classes.")
+(defvar dir-locals-directory-cache '()
+  "List of cached directory roots for directory-local variable classes.
+Each element in this list has the form (DIR CLASS MTIME).
+DIR is the name of the directory.
+CLASS is the name of a variable class (a symbol).
+MTIME is the recorded modification time of the directory-local
+ variables file associated with this entry.  This time is a list
+ of two integers (the same format as `file-attributes'), and is
+ used to test whether the cache entry is still valid.
+ Alternatively, MTIME can be nil, which means the entry is always
+ considered valid.")
 
 (defsubst dir-locals-get-class-variables (class)
   "Return the variable list for CLASS."
@@ -3229,18 +3241,20 @@ Return the new variables list."
 	  (setq variables (dir-locals-collect-mode-variables
 			   (cdr entry) variables))))))))
 
-(defun dir-locals-set-directory-class (directory class)
+(defun dir-locals-set-directory-class (directory class mtime)
   "Declare that the DIRECTORY root is an instance of CLASS.
 DIRECTORY is the name of a directory, a string.
 CLASS is the name of a project class, a symbol.
+MTIME is either the modification time of the directory-local
+variables file that defined this this class, or nil.
 
 When a file beneath DIRECTORY is visited, the mode-specific
-variables from CLASS will be applied to the buffer.  The variables
+variables from CLASS are applied to the buffer.  The variables
 for a class are defined using `dir-locals-set-class-variables'."
   (setq directory (file-name-as-directory (expand-file-name directory)))
   (unless (assq class dir-locals-class-alist)
     (error "No such class `%s'" (symbol-name class)))
-  (push (cons directory class) dir-locals-directory-alist))
+  (push (list directory class mtime) dir-locals-directory-cache))
 
 (defun dir-locals-set-class-variables (class variables)
   "Map the type CLASS to a list of variable settings.
@@ -3283,12 +3297,15 @@ It has to be constant to enforce uniform values
 across different environments and users.")
 
 (defun dir-locals-find-file (file)
-  "Find the directory-local variables FILE.
-This searches upward in the directory tree.
-If a local variables file is found, the file name is returned.
-If the file is already registered, a cons from
-`dir-locals-directory-alist' is returned.
-Otherwise this returns nil."
+  "Find the directory-local variables for FILE.
+This searches upward in the directory tree from FILE.
+If the directory root of FILE has been registered in
+ `dir-locals-directory-cache' and the directory-local variables
+ file has not been modified, return the matching entry in
+ `dir-locals-directory-cache'.
+Otherwise, if a directory-local variables file is found, return
+ the file name.
+Otherwise, return nil."
   (setq file (expand-file-name file))
   (let* ((dir-locals-file-name
 	  (if (eq system-type 'ms-dos)
@@ -3299,19 +3316,31 @@ Otherwise this returns nil."
     ;; `locate-dominating-file' may have abbreviated the name.
     (when locals-file
       (setq locals-file (expand-file-name dir-locals-file-name locals-file)))
-    (dolist (elt dir-locals-directory-alist)
+    ;; Find the best cached value in `dir-locals-directory-cache'.
+    (dolist (elt dir-locals-directory-cache)
       (when (and (eq t (compare-strings file nil (length (car elt))
 					(car elt) nil nil
 					(memq system-type
 					      '(windows-nt cygwin ms-dos))))
 		 (> (length (car elt)) (length (car dir-elt))))
 	(setq dir-elt elt)))
-    (if (and locals-file dir-elt)
-	(if (> (length (file-name-directory locals-file))
-	       (length (car dir-elt)))
-	    locals-file
-	  dir-elt)
-      (or locals-file dir-elt))))
+    (let ((use-cache (and dir-elt
+			  (or (null locals-file)
+			      (<= (length (file-name-directory locals-file))
+				  (length (car dir-elt)))))))
+      (if use-cache
+	  ;; Check the validity of the cache.
+	  (if (and (file-readable-p (car dir-elt))
+		   (or (null  (nth 2 dir-elt))
+		       (equal (nth 2 dir-elt)
+			      (nth 5 (file-attributes (car dir-elt))))))
+	      ;; This cache entry is OK.
+	      dir-elt
+	    ;; This cache entry is invalid; clear it.
+	    (setq dir-locals-directory-cache
+		  (delq dir-elt dir-locals-directory-cache))
+	    locals-file)
+	locals-file))))
 
 (defun dir-locals-read-from-file (file)
   "Load a variables FILE and register a new class and instance.
@@ -3319,14 +3348,14 @@ FILE is the name of the file holding the variables to apply.
 The new class name is the same as the directory in which FILE
 is found.  Returns the new class name."
   (with-temp-buffer
-    ;; We should probably store the modtime of FILE and then
-    ;; reload it whenever it changes.
     (insert-file-contents file)
     (let* ((dir-name (file-name-directory file))
 	   (class-name (intern dir-name))
-	   (variables (read (current-buffer))))
+	   (variables (let ((read-circle nil))
+			(read (current-buffer)))))
       (dir-locals-set-class-variables class-name variables)
-      (dir-locals-set-directory-class dir-name class-name)
+      (dir-locals-set-directory-class dir-name class-name
+				      (nth 5 (file-attributes file)))
       class-name)))
 
 (declare-function c-postprocess-file-styles "cc-mode" ())
@@ -3347,8 +3376,8 @@ without applying them."
 	(setq dir-name (file-name-directory (buffer-file-name)))
 	(setq class (dir-locals-read-from-file variables-file)))
        ((consp variables-file)
-	(setq dir-name (car variables-file))
-	(setq class (cdr variables-file))))
+	(setq dir-name (nth 0 variables-file))
+	(setq class (nth 1 variables-file))))
       (when class
 	(let ((variables
 	       (dir-locals-collect-variables
@@ -4474,8 +4503,14 @@ Don't call it from programs!  Use `insert-file-contents' instead.
 (defun append-to-file (start end filename)
   "Append the contents of the region to the end of file FILENAME.
 When called from a function, expects three arguments,
-START, END and FILENAME.  START and END are buffer positions
-saying what text to write."
+START, END and FILENAME.  START and END are normally buffer positions
+specifying the part of the buffer to write.
+If START is nil, that means to use the entire buffer contents.
+If START is a string, then output that string to the file
+instead of any buffer contents; END is ignored.
+
+This does character code conversion and applies annotations
+like `write-region' does."
   (interactive "r\nFAppend to file: ")
   (write-region start end filename t))
 
@@ -5254,12 +5289,14 @@ and `list-directory-verbose-switches'."
   "Quote characters special to the shell in PATTERN, leave wildcards alone.
 
 PATTERN is assumed to represent a file-name wildcard suitable for the
-underlying filesystem.  For Unix and GNU/Linux, the characters from the
-set [ \\t\\n;<>&|()'\"#$] are quoted with a backslash; for DOS/Windows, all
+underlying filesystem.  For Unix and GNU/Linux, each character from the
+set [ \\t\\n;<>&|()'\"#$] is quoted with a backslash; for DOS/Windows, all
 the parts of the pattern which don't include wildcard characters are
 quoted with double quotes.
-Existing quote characters in PATTERN are left alone, so you can pass
-PATTERN that already quotes some of the special characters."
+
+This function leaves alone existing quote characters (\\ on Unix and \"
+on Windows), so PATTERN can use them to quote wildcard characters that
+need to be passed verbatim to shell commands."
   (save-match-data
     (cond
      ((memq system-type '(ms-dos windows-nt cygwin))

@@ -147,7 +147,7 @@ map.  This color map is stored in the variable `ansi-color-map'."
   :initialize 'custom-initialize-default
   :group 'ansi-colors)
 
-(defconst ansi-color-regexp "\033\\[\\([0-9;]*\\)m"
+(defconst ansi-color-regexp "\033\\[\\([0-9;]*m\\)"
   "Regexp that matches SGR control sequences.")
 
 (defconst ansi-color-parameter-regexp "\\([0-9]*\\)[m;]"
@@ -194,7 +194,7 @@ in shell buffers.  You set this variable by calling one of:
   (setq ansi-color-for-comint-mode 'filter))
 
 ;;;###autoload
-(defun ansi-color-process-output (string)
+(defun ansi-color-process-output (ignored)
   "Maybe translate SGR control sequences of comint output into text-properties.
 
 Depending on variable `ansi-color-for-comint-mode' the comint output is
@@ -614,13 +614,12 @@ the parameter 0), then the effect of all previous parameters is cancelled.
 
 ESCAPE-SEQ is a SGR control sequences such as \\033[34m.  The parameter
 34 is used by `ansi-color-get-face-1' to return a face definition."
-  (let ((ansi-color-r "[0-9][0-9]?")
-        (i 0)
+  (let ((i 0)
         f val)
-    (while (string-match ansi-color-r escape-seq i)
+    (while (string-match ansi-color-parameter-regexp escape-seq i)
       (setq i (match-end 0)
 	    val (ansi-color-get-face-1
-		 (string-to-number (match-string 0 escape-seq) 10)))
+		 (string-to-number (match-string 1 escape-seq) 10)))
       (cond ((not val))
 	    ((eq val 'default)
 	     (setq f (list val)))

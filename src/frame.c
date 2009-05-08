@@ -1042,7 +1042,7 @@ Return WINDOW.  */)
 
 DEFUN ("frame-list", Fframe_list, Sframe_list,
        0, 0, 0,
-       doc: /* Return a list of all frames.  */)
+       doc: /* Return a list of all live frames.  */)
      ()
 {
   Lisp_Object frames;
@@ -1319,7 +1319,10 @@ extern Lisp_Object Qrun_hook_with_args;
   described for Fdelete_frame.  */
 Lisp_Object
 delete_frame (frame, force)
-     register Lisp_Object frame, force;
+     /* If we use `register' here, gcc-4.0.2 on amd64 using
+	-DUSE_LISP_UNION_TYPE complains further down that we're getting the
+	address of `force'.  Go figure.  */
+     Lisp_Object frame, force;
 {
   struct frame *f;
   struct frame *sf = SELECTED_FRAME ();
@@ -3364,9 +3367,8 @@ x_set_font (f, arg, oldval)
      struct frame *f;
      Lisp_Object arg, oldval;
 {
-  Lisp_Object frame;
+  Lisp_Object frame, font_object, lval;
   int fontset = -1;
-  Lisp_Object font_object;
 
   /* Set the frame parameter back to the old value because we may
      fail to use ARG as the new parameter value.  */
@@ -3416,6 +3418,16 @@ x_set_font (f, arg, oldval)
 	 itself in the future.  */
       arg = AREF (font_object, FONT_NAME_INDEX);
       fontset = FRAME_FONTSET (f);
+      /* Check if we can use the current fontset.  If not, set FONTSET
+	 to -1 to generate a new fontset from FONT-OBJECT.  */
+      if (fontset >= 0)
+	{
+	  Lisp_Object ascii_font = fontset_ascii (fontset);
+	  Lisp_Object spec = font_spec_from_name (ascii_font);
+
+	  if (! font_match_p (spec, font_object))
+	    fontset = -1;
+	}
     }
   else
     signal_error ("Invalid font", arg);
@@ -3424,7 +3436,7 @@ x_set_font (f, arg, oldval)
     return;
 
   
-  Lisp_Object lval = Fassq (Qfullscreen, f->param_alist);
+  lval = Fassq (Qfullscreen, f->param_alist);
   if (CONSP (lval)) lval = CDR (lval);
 
   x_new_font (f, font_object, fontset);

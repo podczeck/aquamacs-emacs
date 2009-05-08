@@ -3452,7 +3452,7 @@ handle_face_prop (it)
 				   &next_stop,
 				   (IT_CHARPOS (*it)
 				    + TEXT_PROP_DISTANCE_LIMIT),
-				   0);
+				   0, it->base_face_id);
 
       /* Is this a start of a run of characters with box face?
 	 Caveat: this can be called for a freshly initialized
@@ -3693,7 +3693,7 @@ face_before_or_after_it_pos (it, before_p)
 					 it->region_beg_charpos,
 					 it->region_end_charpos,
 					 &next_check_charpos,
-					 limit, 0);
+					 limit, 0, -1);
 
       /* Correct the face for charsets different from ASCII.  Do it
 	 for the multibyte case only.  The face returned above is
@@ -5992,7 +5992,8 @@ get_next_display_element (it)
 		  next_face_id = face_at_buffer_position
 		    (it->w, CHARPOS (pos), it->region_beg_charpos,
 		     it->region_end_charpos, &ignore,
-		     (IT_CHARPOS (*it) + TEXT_PROP_DISTANCE_LIMIT), 0);
+		     (IT_CHARPOS (*it) + TEXT_PROP_DISTANCE_LIMIT), 0,
+		     -1);
 		  it->end_of_box_run_p
 		    = (FACE_FROM_ID (it->f, next_face_id)->box
 		       == FACE_NO_BOX);
@@ -15692,7 +15693,7 @@ dump_glyph (row, glyph, area)
 	fprintf (stderr,
 		 "[%d-%d]",
 		 glyph->u.cmp.from, glyph->u.cmp.to);
-      fprintf (stderr, " . %4d %1.1d%1.1d\n"
+      fprintf (stderr, " . %4d %1.1d%1.1d\n",
 	       glyph->face_id,
 	       glyph->left_box_line_p,
 	       glyph->right_box_line_p);
@@ -23898,7 +23899,8 @@ note_mouse_highlight (f, x, y)
 	      dpyinfo->mouse_face_face_id
 		= face_at_buffer_position (w, pos, 0, 0,
 					   &ignore, pos + 1,
-					   !dpyinfo->mouse_face_hidden);
+					   !dpyinfo->mouse_face_hidden,
+					   -1);
 
 	      /* Display it as active.  */
 	      show_mouse_face (dpyinfo, DRAW_MOUSE_FACE);
@@ -23941,7 +23943,8 @@ note_mouse_highlight (f, x, y)
 		dpyinfo->mouse_face_face_id
 		  = face_at_buffer_position (w, pos, 0, 0,
 					     &ignore, pos + 1,
-					     !dpyinfo->mouse_face_hidden);
+					     !dpyinfo->mouse_face_hidden,
+					     -1);
 
 	      /* Display it as active.  */
 	      show_mouse_face (dpyinfo, DRAW_MOUSE_FACE);
@@ -24022,7 +24025,8 @@ note_mouse_highlight (f, x, y)
 		  dpyinfo->mouse_face_face_id
 		    = face_at_buffer_position (w, pos, 0, 0,
 					       &ignore, pos + 1,
-					       !dpyinfo->mouse_face_hidden);
+					       !dpyinfo->mouse_face_hidden,
+					       -1);
 
 		  /* Display it as active.  */
 		  show_mouse_face (dpyinfo, DRAW_MOUSE_FACE);
@@ -25275,26 +25279,28 @@ The enable predicate for a menu binding should check this variable.  */);
   inhibit_menubar_update = 0;
 
   DEFVAR_LISP ("wrap-prefix", &Vwrap_prefix,
-    doc: /* Prefix added to the beginning of all continuation lines at display-time.
-May be a string, an image, or a stretch-glyph such as used by the
-`display' text-property.
+    doc: /* Prefix prepended to all continuation lines at display time.
+The value may be a string, an image, or a stretch-glyph; it is
+interpreted in the same way as the value of a `display' text property.
 
-This variable is overridden by any `wrap-prefix' text-property.
+This variable is overridden by any `wrap-prefix' text or overlay
+property.
 
-To add a prefix to non-continuation lines, use the `line-prefix' variable.  */);
+To add a prefix to non-continuation lines, use `line-prefix'.  */);
   Vwrap_prefix = Qnil;
   staticpro (&Qwrap_prefix);
   Qwrap_prefix = intern ("wrap-prefix");
   Fmake_variable_buffer_local (Qwrap_prefix);
 
   DEFVAR_LISP ("line-prefix", &Vline_prefix,
-    doc: /* Prefix added to the beginning of all non-continuation lines at display-time.
-May be a string, an image, or a stretch-glyph such as used by the
-`display' text-property.
+    doc: /* Prefix prepended to all non-continuation lines at display time.
+The value may be a string, an image, or a stretch-glyph; it is
+interpreted in the same way as the value of a `display' text property.
 
-This variable is overridden by any `line-prefix' text-property.
+This variable is overridden by any `line-prefix' text or overlay
+property.
 
-To add a prefix to continuation lines, use the `wrap-prefix' variable.  */);
+To add a prefix to continuation lines, use `wrap-prefix'.  */);
   Vline_prefix = Qnil;
   staticpro (&Qline_prefix);
   Qline_prefix = intern ("line-prefix");

@@ -1,3 +1,536 @@
+2009-05-07  Martin Rudalics  <rudalics@gmx.at>
+
+	* window.el (split-window-sensibly): New function.
+	(split-height-threshold, split-width-threshold): State in
+	doc-string that these affect split-window-sensibly.  Change
+	customization subtype from number to integer.
+	(window--splittable-p): Rename to window-splittable-p since it's
+	referred to in doc-string of split-window-sensibly.  Update
+	doc-string.
+	(window--try-to-split-window): Unconditionally call
+	split-window-preferred-function and move splitting functionality
+	to split-window-sensibly (Bug#3142).
+	(split-window-preferred-function): Rewrite doc-string.  Don't
+	allow nil as customization type.
+
+2009-05-07  Chong Yidong  <cyd@stupidchicken.com>
+
+	* faces.el (x-handle-named-frame-geometry): Ignore errors from
+	x-get-resource due to not yet opened X connection.  This is a
+	temporary workaround for Bug#3194.
+
+2009-05-05  Bob Rogers  <rogers-emacs@rgrjr.dyndns.org>  (tiny change)
+
+	* vc-svn.el (vc-svn-parse-status): ?D is for removed files (bug#3213).
+
+2009-05-05  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* vc.el (vc-delete-file): Add autoload cookie (bug#3209).
+
+2009-05-04  Miles Bader  <miles@gnu.org>
+
+	* emacs-lisp/bindat.el (bindat-pack): Allocate and set a string
+	directly (Bug#2878).
+
+2009-05-03  Juanma Barranquero  <lekktu@gmail.com>
+
+	* term/ns-win.el (ns-alternatives-map, ns-insert-working-text)
+	(ns-echo-working-text, ns-utf8-nfd-post-read-conversion)
+	(ns-insert-text, ns-insert-file, ns-find-file, generate-fontset-menu)
+	(mouse-set-font, ns-respond-to-change-font, ns-standard-fontset-spec)
+	(ns-set-background-alpha, ns-set-foreground-at-mouse)
+	(ns-set-background-at-mouse): Fix typos in docstrings.
+
+2009-05-03  Daiki Ueno  <ueno@unixuser.org>
+
+	* epg.el (epg-wait-for-completion): Sleep after the process
+	exits, to allow process-filter to run (Bug#2412).
+
+	* epa.el (epa--read-signature-type): Fix typo.
+
+2009-05-02  Glenn Morris  <rgm@gnu.org>
+
+	* wid-edit.el (widget-specify-field, widget-field-value-get, character):
+	Revert 2009-03-24 change, since it causes a more serious problem than
+	the one it solves.  (Closes Bug#3136, reopens Bug#2689.)
+
+2009-05-02  Martin Rudalics  <rudalics@gmx.at>
+
+	* frame.el (pop-up-frame-function): Remove choice nil since it
+	does not represent a valid value.
+
+2009-04-30  David Reitter  <david.reitter@gmail.com>
+
+	* term/ns-win.el (ns-make-command-string, ns-grabenv)
+	(ns-extended-platform-support-mode, menu-bar-ns-file-menu)
+	(ns-arrange-all-frames, ns-arrange-visible-frames)
+	(ns-arrange-frames): Remove.  These functionalities not
+	available on other (free) platforms will be provided to users
+	outside the Emacs project in the "ns-platform-support" package.
+
+2009-04-30  Alan Mackenzie  <acm@muc.de>
+
+	Enhancements for Objective-C:
+	* progmodes/cc-vars.el (c-objc-method-arg-min-delta-to-bracket)
+	(c-objc-method-arg-unfinished-offset)
+	(c-objc-method-parameter-offset): New variables.
+	(c-offsets-alist): Use c-lineup-ObjC-method-call-colons in entry
+	for objc-method-call-cont.
+
+	* progmodes/cc-langs.el (c-constant-kwds): New ObjC keywords
+	"YES", "NO", "NS_DURING", "NS_HANDLER", "NS_ENDHANDLER".
+
+	* progmodes/cc-align.el (c-lineup-ObjC-method-call-colons): New
+	function.
+
+2009-04-29  Chong Yidong  <cyd@stupidchicken.com>
+
+	* subr.el (assoc-default): Doc fix.
+
+2009-04-29  Ulrich Mueller  <ulm@gentoo.org>
+
+	* files.el (hack-local-variables-prop-line)
+	(hack-local-variables, dir-locals-read-from-file): Bind
+	read-circle to nil before reading.
+
+2009-04-28  Geert Kloosterman  <g.j.kloosterman@gmail.com>  (tiny change)
+
+	* progmodes/which-func.el (which-function): Don't assume that
+	entries from `imenu--index-alist' are ordered by buffer position,
+	which fails when submenus are present (Bug#3153).
+
+2009-04-28  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* international/quail.el (quail-vunion): Remove unexplained nreverse.
+
+2009-04-28  Nick Roberts  <nickrob@snap.net.nz>
+
+	* progmodes/gdb-ui.el (gdb-tooltip-print): Avoid "Non-X frame used"
+	error with gud-tooltip-mode in the Linux console.
+
+2009-04-28  Chong Yidong  <cyd@stupidchicken.com>
+
+	* tooltip.el (tooltip-show-help): Fall back on
+	tooltip-show-help-non-mode for text-only displays.
+
+2009-04-27  Jay Belanger  <jay.p.belanger@gmail.com>
+
+	* calc/calc.el (calc-mode): Replace `copy-list' with `copy-sequence'.
+
+2009-04-26  Jay Belanger  <jay.p.belanger@gmail.com>
+
+	* calc/calc.el (calc-set-mode-line): Check to make sure that the
+	correct Calc buffer gets "Embed" in the mode line.
+	(calc-mode): Copy stack list for additional Calc buffers.
+
+2009-04-25  Chong Yidong  <cyd@stupidchicken.com>
+
+	* simple.el (line-move-visual): If point is stuck moving backwards
+	against a display string, temporarily ignore the goal
+	column (Bug#3020).
+
+	* startup.el (normal-top-level): Implement a work-around to handle
+	changes to face-font-rescale-alist during
+	initialization (Bug#1785).
+
+2009-04-24  Michael Albinus  <michael.albinus@gmx.de>
+
+	* net/tramp.el (tramp-handle-directory-files-and-attributes-with-stat)
+	(tramp-handle-file-name-all-completions): Don't use "-b" as ls
+	arg.  It does not work on OpenBSD.  Reported by Taylor Venable
+	<taylor@metasyntax.net>.
+
+2009-04-23  Chong Yidong  <cyd@stupidchicken.com>
+
+	* hi-lock.el (hi-lock--inhibit-font-lock-hook): New var.
+	(hi-lock-set-pattern, hi-lock-font-lock-hook): Use it (Bug#3068).
+
+2009-04-21  Martin Rudalics  <rudalics@gmx.at>
+
+	* diff-mode.el (diff-find-source-location): Don't call
+	diff-sanity-check-hunk when NOPROMPT is non-nil.  (Bug#3033)
+
+2009-04-21  Kenichi Handa  <handa@m17n.org>
+
+	* international/uni-decomposition.el: Re-generated.
+
+2009-04-20  Roland Winkler  <Roland.Winkler@physik.uni-erlangen.de>
+
+	* proced.el (proced-sort): Declare it buffer-local.
+	(proced-send-signal): Handle non-nil signals.
+
+2009-04-18  Jason Rumney  <jasonr@gnu.org>
+
+	* facemenu.el (list-colors-duplicates): w32-default-color-map is
+	a function (Bug#3044).
+
+2009-04-18  ARISAWA Akihiro  <ari@mbf.ocn.ne.jp>
+
+	* epa-file.el (epa-file-decode-and-insert):
+	Use string-to-multibyte instead of set-buffer-multibyte.
+	<http://sourceforge.jp/ticket/browse.php?group_id=2267&tid=15259>
+
+2009-04-18  Yann Hodique  <yann.hodique@gmail.com>  (tiny change)
+
+	* net/rcirc.el (rcirc): Use correct property names (Bug#3037).
+
+2009-04-18  Chong Yidong  <cyd@stupidchicken.com>
+
+	* thingatpt.el (thing-at-point-bounds-of-list-at-point):
+	New function (Bug#3027).
+
+2009-04-17  Kenichi Handa  <handa@m17n.org>
+
+	* international/uni-decomposition.el: Re-generated.
+
+2009-04-16  Chong Yidong  <cyd@stupidchicken.com>
+
+	* textmodes/flyspell.el (flyspell-correct-word-before-point):
+	Don't create markers.
+	(tex-mode-flyspell-verify): Don't create markers.
+	Use line-end-position.
+	(sgml-mode-flyspell-verify): Don't create markers.  Simplify code
+	using looking-at and looking-back.
+
+2009-04-16  Robert Brown  <brown@google.com>  (tiny change)
+
+	* emacs-lisp/lisp-mode.el: Give `deftype' a doc-string-elt
+	property (Bug#2984).
+
+2009-04-16  Leo  <sdl.web@gmail.com>  (tiny change)
+
+	* ediff-wind.el (ediff-make-wide-display): Fix typo in frame
+	parameter alist.
+
+2009-04-15  William Xu  <william.xwl@gmail.com>
+
+	* outline.el (hide-sublevels): Ensure that arguments are passed to
+	outline-flag-region in the correct order (Bug#3000).
+
+2009-04-15  Katsumi Yamaoka  <yamaoka@jpl.org>
+
+	* net/browse-url.el (browse-url-filename-alist): Correct file
+	URI (Bug#2922).
+
+2009-04-15  Chong Yidong  <cyd@stupidchicken.com>
+
+	* subr.el (posn-col-row): Properly compute line spacing.
+	Suggested by Nikolaj Schumacher (Bug#2933).
+
+2009-04-15  Ulf Jasper  <ulf.jasper@web.de>
+
+	* net/newst-treeview.el (newsticker-treeview-jump): Enable virtual
+	feeds.
+
+2009-04-15  Dan Nicolaescu  <dann@ics.uci.edu>
+
+	* vc-svn.el (vc-svn-after-dir-status): Fix regexp to allow for file
+	names with leading spaces.  Ignore "." if it appears as a filename.
+
+2009-04-14  Juanma Barranquero  <lekktu@gmail.com>
+
+	* help-at-pt.el (help-at-pt-kbd-string): Reflow docstring.
+	(scan-buf-previous-region): Fix typo in docstring.
+
+2009-04-14  Edward Wiebe  <usenet@pusto.de>  (tiny change)
+
+	* jit-lock.el (jit-lock-stealth-chunk-start): Fix typo in docstring.
+
+2009-04-14  Michael Albinus  <michael.albinus@gmx.de>
+
+	* net/tramp.el (tramp-handle-dired-recursive-delete-directory):
+	Fix an error in flushing cache data.
+	(tramp-handle-process-file): Flush all file cache values for the
+	connection, because the remote process could have changed them.
+	Suggested by Stefan Monnier <monnier@iro.umontreal.ca>.
+	Handle QUIT.
+
+	* net/tramp-cmds.el (tramp-cleanup-connection): Flush cache data
+	of directory "".
+
+2009-04-14  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* minibuffer.el (completion--try-word-completion): Don't disable
+	`partial-completion' any more.  Mark the added char instead.
+	(completion-pcm--string->pattern): Notice chars added by
+	completion--try-word-completion and treat them specially. (bug#2957)
+
+2009-04-13  Jason Rumney  <jasonr@gnu.org>
+
+	* faces.el (frame-set-background-mode): Window system frames
+	default to light.  Use default in cases where specified color
+	does not exist (Bug#2969).
+
+2009-04-13  Kenichi Handa  <handa@m17n.org>
+
+	* language/japanese.el (cp932): Delete alias for japanese-shift-jis.
+
+2009-04-12  Michael Albinus  <michael.albinus@gmx.de>
+
+	* net/tramp.el (tramp-do-copy-or-rename-file-directly):
+	Overwrite always the tmpfile.  (Bug#2962).
+
+2009-04-11  Chong Yidong  <cyd@stupidchicken.com>
+
+	* files.el (dir-locals-directory-cache): Change format to include
+	the mtime of the directory-local variables file (Bug#2833).
+	(dir-locals-set-directory-class): New arg mtime.  Store it in
+	dir-locals-directory-cache.
+	(dir-locals-find-file): Check cache validity using the mtime.
+	(dir-locals-read-from-file): Save the file mtime in the cache.
+	(hack-dir-local-variables): Adapt to new
+	dir-locals-directory-cache entry format.
+
+	* international/mule-diag.el (describe-font-internal):
+	Rename ignored argument to IGNORED.
+	(describe-font): Elide unnecessary argument to
+	describe-font-internal (Bug#2945).
+
+2009-04-10  Richard M Stallman  <rms@gnu.org>
+
+	* mail/rmailedit.el (rmail-cease-edit): Call rmail-modify-format.
+
+	* vc-dir.el (vc-dir): Doc fix.
+
+2009-04-10  Eli Zaretskii  <eliz@gnu.org>
+
+	* mail/unrmail.el (unrmail): If "Mail-From" header is found,
+	append a newline to it.
+
+	* mail/rmail.el (rmail-unrmail-new-mail)
+	(rmail-unrmail-new-mail-maybe): New functions.
+	(rmail-insert-inbox-text): Use rmail-unrmail-new-mail-maybe to
+	convert Babyl-formatted new mail to mbox format.  (Bug#2942)
+
+2009-04-09  Kim F. Storm  <storm@cua.dk>
+
+	* emulation/cua-rect.el (cua--indent-rectangle): Insert tabs using
+	tab-to-tab-stop to respect indent-tabs-mode.
+
+2009-04-09  Richard M Stallman  <rms@gnu.org>
+
+	* mail/rmailkwd.el (rmail-set-label): Warn if multiple labels spec'd.
+	(rmail-kill-label, rmail-add-label): Doc fixes.
+
+	* mail/rmailout.el (rmail-output): If file is visited,
+	check the buffer's format.
+
+	* mail/rmailout.el (rmail-convert-to-babyl-format): Don't set "unseen".
+
+	* mail/rmailout.el (rmail-output-to-rmail-buffer):
+	Call rmail-modify-format.
+
+	Don't query before visiting a Babyl file.
+	Instead, query before modifications that would save it.
+
+	* mail/rmail.el (rmail-was-converted): New variable.
+	(rmail-seriously-modified): New variable.
+	(rmail-perm-variables): Set them to nil.
+	(rmail-convert-babyl-to-mbox): Don't query about converting Babyl file.
+	Instead, set rmail-was-converted.
+	(rmail-modify-format): New function.  Query if save will change format.
+	(rmail-dont-modify-format): New function.
+	(rmail-duplicate-message, rmail-get-new-mail):
+	Call rmail-modify-format.
+	(rmail-set-header): Call rmail-dont-modify-format.
+	(rmail-set-attribute): Likewise.
+	(rmail-expunge-confirmed): Call rmail-modify-format.
+
+	* mail/sendmail.el (sendmail-send-it): Replace any
+	pre-existing Content-type header if we insert one.
+
+2009-04-09  Michael Albinus  <michael.albinus@gmx.de>
+
+	* net/tramp.el (tramp-file-name-handler-alist): Add `vc-registered'.
+	(tramp-handle-vc-registered): New defun.  (Bug#1741)
+
+	* net/tramp-cache.el (tramp-flush-directory-property): Use the
+	localname of KEY for check.
+
+2009-04-09  Kenichi Handa  <handa@m17n.org>
+
+	* international/charprop.el: Re-generated.
+	* international/uni-bidi.el: Re-generated.
+	* international/uni-category.el: Re-generated.
+	* international/uni-combining.el: Re-generated.
+	* international/uni-decomposition.el: Re-generated.
+	* international/uni-mirrored.el: Re-generated.
+	* international/uni-name.el: Re-generated.
+
+2009-04-08  Eli Zaretskii  <eliz@gnu.org>
+
+	* files.el (append-to-file): Doc fix.
+
+	* term/pc-win.el (msdos-last-help-message): New defvar.
+	(msdos-show-help): Use it to avoid saving the last message if it
+	was also a help message (Bug#2895).
+
+	* mail/rmail.el (rmail-simplified-subject): Normalize whitespace
+	in subject.  This resurrects a feature, lost in transition to
+	mbox, whereby Subject is matched even if it's broken into several
+	lines at arbitrary places.
+
+2009-04-08  Nick Roberts  <nickrob@snap.net.nz>
+
+	* progmodes/gdb-ui.el: Give hint for GDB in Emacs on Mac OSX.
+
+2009-04-08  Chong Yidong  <cyd@stupidchicken.com>
+
+	* textmodes/fill.el (fill-paragraph): Doc fix.
+
+2009-04-07  Chong Yidong  <cyd@stupidchicken.com>
+
+	* vc-bzr.el (vc-bzr-log-view-mode): Fix last fix.
+
+2009-04-07  Glenn Morris  <rgm@gnu.org>
+
+	* term/ns-win.el (ns-pop-up-frames): Make it a defcustom.
+
+	* mail/rmail.el (rmail-expunge-and-save): Let rmail-expunge show the
+	message.
+	(rmail-quit): Mark summary unmodified.
+	(rmail-expunge): Doc fix.  Always show a message.  (Bug#2763)
+
+2009-04-07  Chong Yidong  <cyd@stupidchicken.com>
+
+	* vc-bzr.el (vc-bzr-log-view-mode): Tweak
+	log-view-message-re (Bug#2872).
+
+	* descr-text.el (describe-property-list, describe-char): Add
+	follow-link properties to buttons that need them.
+
+	* tooltip.el (tooltip-show-help-non-mode): Don't save the last
+	message if it was also a help message (Bug#2895).
+
+2009-04-06  Roland Winkler  <Roland.Winkler@physik.uni-erlangen.de>
+
+	* textmodes/bibtex.el (bibtex-format-entry)
+	(bibtex-search-crossref): Allow OPT prefix for name of crossref
+	field.
+
+2009-04-06  Sam Steingold  <sds@gnu.org>
+
+	* simple.el (completion-list-mode-map): Bind "q" to quit-window,
+	just like in all other read-only buffers.
+
+2009-04-05  Chong Yidong  <cyd@stupidchicken.com>
+
+	* simple.el (handle-shift-selection): Clarify docstring.
+
+2009-04-05  Michael Albinus  <michael.albinus@gmx.de>
+
+	* dired-aux.el (dired-copy-file-recursive): Set mode to "700" if
+	`file-modes' returns nil.
+
+	* net/ange-ftp.el (ange-ftp-set-file-modes): New defun.  Change
+	`ange-ftp' property of `set-file-modes' to
+	`ange-ftp-set-file-modes' (Bug#2865).
+	(ange-ftp-call-chmod): Add error handling.
+
+	* net/tramp.el (tramp-default-file-modes): New defun.  Replace all
+	calls of `file-modes' by this (Bug#2869).
+	(tramp-handle-find-backup-file-name): Use `symbol-value' instead
+	of `boundp'.
+
+	* net/tramp-fish.el (tramp-fish-do-copy-or-rename-file-directly):
+	Use `tramp-default-file-modes'.
+
+2009-04-04  Chong Yidong  <cyd@stupidchicken.com>
+
+	* frame.el (make-frame): Doc fix.
+
+2009-04-04  Eli Zaretskii  <eliz@gnu.org>
+
+	* mail/rmailsum.el (rmail-new-summary-1): Don't show zero count of
+	summary lines.
+
+2009-04-02  Chong Yidong  <cyd@stupidchicken.com>
+
+	* dired.el (dired-get-filename): Always pass filename through
+	`read' to ensure unquoting is performed (Bug#2862).
+
+2009-04-02  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* doc-view.el (doc-view-mode): Don't give up if the file doesn't exist.
+
+2009-04-02  Glenn Morris  <rgm@gnu.org>
+
+	* calendar/diary-lib.el (diary-cyclic): Check for +ve N.
+
+	* calendar/holidays.el (calendar-holidays):
+	Don't autoload it.  (Bug#2811)
+
+2009-04-02  Kenichi Handa  <handa@m17n.org>
+
+	* international/fontset.el (setup-default-fontset):
+	Specify iso10646-1 font for characters in PUA of BMP.  (Bug#2830)
+
+2009-04-02  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* simple.el (auto-fill-function): Mark it as safe for nil.
+	Suggested by Leo <sdl.web@gmail.com>.
+
+2009-04-01  Dan Nicolaescu  <dann@ics.uci.edu>
+
+	* vc-mtn.el (vc-mtn-register): Fix optional arguments.
+
+	* vc-hooks.el (vc-name): Avoid calling vc-backend twice.
+	(vc-mode-line): Accept and use an optional argument for the backend.
+	(vc-find-file-hook): Use when instead of if.  Avoid calling
+	vc-backend multiple times, pass down the value computed the first time.
+
+2009-03-30  Andreas Schwab  <schwab@linux-m68k.org>
+
+	* ansi-color.el (ansi-color-get-face):
+	Use ansi-color-parameter-regexp to match parameters.
+	(ansi-color-regexp): Include final `m' in first group.
+
+2009-03-30  Jason Rumney  <jasonr@gnu.org>
+
+	* files.el (locate-dominating-stop-dir-regexp): Stop searching
+	when a UNC mount point is reached.
+
+2009-03-30  Jay Belanger  <jay.p.belanger@gmail.com>
+
+	* calc/calc-embed.el (calc-embedded-restore-original-modes):
+	Add argument for Calculator buffer.
+	(calc-do-embedded): Use specific Calculator buffer when cancelling
+	embedded mode.
+
+	* calc/calc.el (calc-buffer-list): New variable.
+	(calc-kill-stack-buffer): New function.
+	(calc-mode): Add `calc-kill-stack-buffer' to
+	`kill-buffer-query-functions'.  Add current buffer to
+	`calc-buffer-list'.
+
+2009-03-30  Kenichi Handa  <handa@m17n.org>
+
+	* language/chinese.el (chinese-big5): Change type to `big5'.
+
+2009-03-30  Chong Yidong  <cyd@stupidchicken.com>
+
+	* help-mode.el (help-buffer): Add docstring.
+
+2009-03-28  David Reitter  <david.reitter@gmail.com>
+
+	* term/ns-win.el (ns-expand-space): Remove defvar.
+	(S-,): Bind to `customize' in line with menu item.
+	([global-map windows]): Remove (in line with other platforms).
+	(menu-bar-update-frames, force-menu-bar-update-buffers):
+	Remove, not needed.
+	(menu-bar-update-hook): Do not alter.
+	(generate-fontset-menu, mouse-set-font): Amend doc string
+	of these defaliases to point out their altered meaning in NS.
+
+2009-03-28  Juri Linkov  <juri@jurta.org>
+
+	* simple.el (minibuffer-default-add-completions):
+	Remove `(interactive)'.  (Bug#2805)
+
+2009-03-28  Eli Zaretskii  <eliz@gnu.org>
+
+	* files.el (shell-quote-wildcard-pattern): Doc fix.
+
 2009-03-27  Eli Zaretskii  <eliz@gnu.org>
 
 	* ls-lisp.el (ls-lisp-insert-directory): Allow for a trailing '/'
@@ -103,7 +636,7 @@
 	(eshell-ls-dir): Under -l, call eshell-ls-printable-size with last
 	argument nil.
 
-2009-03-21  David Reitter <david.reitter@gmail.com>
+2009-03-21  David Reitter  <david.reitter@gmail.com>
 
 	* cus-start.el (all): Use existing `ns' rather than new `nextstep'
 	group for variables affected by last two changes.
@@ -112,7 +645,7 @@
 
 	* cus-start.el (all): Fix last change.
 
-2009-03-21  David Reitter <david.reitter@gmail.com>
+2009-03-21  David Reitter  <david.reitter@gmail.com>
 
 	* cus-start.el (all): Add ns-control-modifier,
 	ns-command-modifier, ns-alternate-modifier, ns-function-modifier,
@@ -462,7 +995,7 @@
 	(rmail-mime): Doc fix.  Use rmail-apply-in-message.
 	Disable undo in the mime buffer, mark unmodified.
 
-2009-03-04  David Reitter <david.reitter@gmail.com>
+2009-03-04  David Reitter  <david.reitter@gmail.com>
 
 	* menu-bar.el (clipboard-yank): Avoid checking (x-selection-exists-p)
 	if unbound in order to enable the item.
@@ -614,7 +1147,7 @@
 
 2009-02-26  Michael Albinus  <michael.albinus@gmx.de>
 
-	* net/tramp.el (tramp-remote-coding-commands): Add "base64". (Bug#2463)
+	* net/tramp.el (tramp-remote-coding-commands): Add "base64".  (Bug#2463)
 
 2009-02-26  Juanma Barranquero  <lekktu@gmail.com>
 
@@ -658,7 +1191,7 @@
 
 	* vc-dir.el (vc-dir-update): Make sure ./ is always first in the listing.
 
-2009-02-25  David Reitter <david.reitter@gmail.com>
+2009-02-25  David Reitter  <david.reitter@gmail.com>
 
 	* mail/mailclient.el (clipboard-kill-ring-save): Declare.
 
@@ -955,7 +1488,7 @@
 2009-02-17  Jason Rumney  <jasonr@gnu.org>
 
 	* files.el (make-directory): Stop recursing if parent is
-	self. (Bug#2309)
+	self.  (Bug#2309)
 
 2009-02-17  Juanma Barranquero  <lekktu@gmail.com>
 
@@ -1056,8 +1589,8 @@
 
 2009-02-14  Ian Eure  <ian@digg.com>  (tiny change)
 
-	* progmodes/sql.el (sql-product-alist, sql-connect-sqlite):
-	Remove host, user, password options not applicable to SQlite. (Bug#1904)
+	* progmodes/sql.el (sql-product-alist, sql-connect-sqlite): Remove host,
+	user, password options not applicable to SQlite.  (Bug#1904)
 
 2009-02-14  Richard M Stallman  <rms@gnu.org>
 
@@ -1480,7 +2013,7 @@
 2009-02-04  Nick Roberts  <nickrob@snap.net.nz>
 
 	* vc-svn.el (vc-svn-diff): Revert previous change but add a test
-	for newvars is nil. (C-u C-x v = with default values).
+	for newvars is nil.  (C-u C-x v = with default values).
 
 2009-02-04  Dan Nicolaescu  <dann@ics.uci.edu>
 
@@ -1983,7 +2516,7 @@
 	variable to allow the user to choose icalendar UID format.
 	(icalendar--diarytime-to-isotime): Bug fix, now times in the range
 	12:00am-12:59am are correctly converted to 0000-0059, instead of 12pm.
-	(icalendar-export-region,icalendar--create-uid): Use custom
+	(icalendar-export-region, icalendar--create-uid): Use custom
 	function to compute icalendar UID for each entry.
 	(icalendar--parse-summary-and-rest): Bug fix for parsing of lines
 	with description, location, etc. fields (need to keep active count
@@ -6542,7 +7075,7 @@
 	* vc-cvs.el (vc-cvs-root): Delete.
 	* vc-hooks.el (vc-find-root): Remove `invert' argument.
 
-2008-09-07  Nikolaj Schumacher  <n_schumacher@web.de>  (tiny change)
+2008-09-07  Nikolaj Schumacher  <n_schumacher@web.de>
 
 	* progmodes/flymake.el (flymake-parse-err-lines): Filter out
 	errors occurring in different files.
@@ -8161,7 +8694,7 @@
 
 	* international/mule.el (recode-region): Deactivate mark at the end.
 
-2008-07-23  Nikolaj Schumacher  <n_schumacher@web.de>  (tiny change)
+2008-07-23  Nikolaj Schumacher  <n_schumacher@web.de>
 
 	* progmodes/flymake.el (flymake-errline, flymake-warnline):
 	Use more suitable colors on dark displays.
@@ -8403,8 +8936,7 @@
 
 2008-07-17  David Reitter  <david.reitter@gmail.com>
 
-	* simple.el (kill-visual-line, turn-on-visual-line-mode): New
-	functions.
+	* simple.el (kill-visual-line, turn-on-visual-line-mode): New functions.
 	(visual-line-mode, global-visual-line-mode): New minor mode.
 	(visual-line-mode-map): New variable.
 

@@ -110,6 +110,15 @@ static unsigned convert_ns_to_X_keysym[] =
   NSF13FunctionKey,             0xCA,
   NSF14FunctionKey,             0xCB,
   NSF15FunctionKey,             0xCC,
+  NSF16FunctionKey,             0xCD,
+  NSF17FunctionKey,             0xCE,
+  NSF18FunctionKey,             0xCF,
+  NSF19FunctionKey,             0xD0,
+  NSF20FunctionKey,             0xD1,
+  NSF21FunctionKey,             0xD2,
+  NSF22FunctionKey,             0xD3,
+  NSF23FunctionKey,             0xD4,
+  NSF24FunctionKey,             0xD5,
 
   NSBackspaceCharacter,         0x08,  /* 8: Not on some KBs. */
   NSDeleteCharacter,            0xFF,  /* 127: Big 'delete' key upper right. */
@@ -1142,10 +1151,10 @@ x_set_window_size (struct frame *f, int change_grav, int cols, int rows)
   pixelheight = FRAME_TEXT_LINES_TO_PIXEL_HEIGHT (f, rows);
 
   /* If we have a toolbar, take its height into account. */
-  /* XXX: GNUstep has not yet implemented the first method below, added
-          in Panther, however the second is incorrect under Cocoa. */
   if (tb)
     FRAME_NS_TOOLBAR_HEIGHT (f) =
+      /* XXX: GNUstep has not yet implemented the first method below, added
+	 in Panther, however the second is incorrect under Cocoa. */
 #ifdef NS_IMPL_COCOA
       NSHeight ([window frameRectForContentRect: NSMakeRect (0, 0, 0, 0)])
       /* NOTE: previously this would generate wrong result if toolbar not
@@ -1743,9 +1752,11 @@ note_mouse_movement (struct frame *frame, float x, float y)
       y < last_mouse_glyph.origin.y ||
       y >= (last_mouse_glyph.origin.y + last_mouse_glyph.size.height))
     {
+      ns_update_begin(frame);
       frame->mouse_moved = 1;
       note_mouse_highlight (frame, x, y);
       remember_mouse_glyph (frame, x, y, &last_mouse_glyph);
+      ns_update_end(frame);
       return 1;
     }
 
@@ -1847,11 +1858,13 @@ ns_frame_up_to_date (struct frame *f)
       /*&& dpyinfo->mouse_face_mouse_frame*/)
         {
           BLOCK_INPUT;
+         ns_update_begin(f);
           if (dpyinfo->mouse_face_mouse_frame)
             note_mouse_highlight (dpyinfo->mouse_face_mouse_frame,
                                   dpyinfo->mouse_face_mouse_x,
                                   dpyinfo->mouse_face_mouse_y);
           dpyinfo->mouse_face_deferred_gc = 0;
+         ns_update_end(f);
           UNBLOCK_INPUT;
         }
     }
@@ -2412,7 +2425,6 @@ ns_draw_window_cursor (struct window *w, struct glyph_row *glyph_row,
     case HBAR_CURSOR:
       s = r;
       s.origin.y += lrint (0.75 * s.size.height);
-      s.size.width = min (FRAME_COLUMN_WIDTH (f), s.size.width);
       s.size.height = lrint (s.size.height * 0.25);
       NSRectFill (s);
       break;
@@ -2796,6 +2808,7 @@ ns_dumpglyphs_image (struct glyph_string *s, NSRect r)
   int th;
   char raised_p;
   NSRect br;
+  struct face *face;
 
   NSTRACE (ns_dumpglyphs_image);
 
@@ -2815,8 +2828,17 @@ ns_dumpglyphs_image (struct glyph_string *s, NSRect r)
   /* Draw BG: if we need larger area than image itself cleared, do that,
      otherwise, since we composite the image under NS (instead of mucking
      with its background color), we must clear just the image area. */
-  [ns_lookup_indexed_color (NS_FACE_BACKGROUND
-            (FACE_FROM_ID (s->f, s->first_glyph->face_id)), s->f) set];
+  if (s->hl == DRAW_MOUSE_FACE)
+    {
+      face = FACE_FROM_ID
+       (s->f, FRAME_NS_DISPLAY_INFO (s->f)->mouse_face_face_id);
+      if (!face)
+       face = FACE_FROM_ID (s->f, MOUSE_FACE_ID);
+    }
+  else
+    face = FACE_FROM_ID (s->f, s->first_glyph->face_id);
+
+  [ns_lookup_indexed_color (NS_FACE_BACKGROUND (face), s->f) set];
 
   if (bg_height > s->slice.height || s->img->hmargin || s->img->vmargin
       || s->img->mask || s->img->pixmap == 0 || s->width != s->background_width)
@@ -2887,6 +2909,7 @@ ns_dumpglyphs_stretch (struct glyph_string *s)
 {
   NSRect r[2];
   int n, i;
+  struct face *face;
 
   if (!s->background_filled_p)
     {
@@ -2928,8 +2951,19 @@ ns_dumpglyphs_stretch (struct glyph_string *s)
         }
 
       ns_focus (s->f, r, n);
-      [ns_lookup_indexed_color (NS_FACE_BACKGROUND
-           (FACE_FROM_ID (s->f, s->first_glyph->face_id)), s->f) set];
+
+      if (s->hl == DRAW_MOUSE_FACE)
+       {
+         face = FACE_FROM_ID
+           (s->f, FRAME_NS_DISPLAY_INFO (s->f)->mouse_face_face_id);
+         if (!face)
+           face = FACE_FROM_ID (s->f, MOUSE_FACE_ID);
+       }
+      else
+       face = FACE_FROM_ID (s->f, s->first_glyph->face_id);
+
+      [ns_lookup_indexed_color (NS_FACE_BACKGROUND (face), s->f) set];
+
       NSRectFill (r[0]);
       NSRectFill (r[1]);
       ns_unfocus (s->f);
@@ -5051,8 +5085,14 @@ extern void update_window_cursor (struct window *w, int on);
     }
 #endif /* NS_IMPL_COCOA */
 
+  // Calling x_set_window_size tends to get us into inf-loops
+  // (x_set_window_size causes a resize which causes
+  // a "windowDidResize" which calls x_set_window_size).
+  // At least with GNUStep, don't know about MacOSX.  --Stef
+#ifndef NS_IMPL_GNUSTEP
   if (cols > 0 && rows > 0)
-    x_set_window_size (emacsframe, 0, cols, rows);
+     x_set_window_size (emacsframe, 0, cols, rows);
+#endif
 
   ns_send_appdefined (-1);
 }

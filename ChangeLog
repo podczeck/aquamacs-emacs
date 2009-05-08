@@ -1,3 +1,36 @@
+2009-05-06  Stefan Monnier  <monnier@iro.umontreal.ca>
+
+	* configure.in: Don't define CANNOT_DUMP for GNUStep any more.
+
+2009-05-05  Per Starbäck  <per@starback.se>  (tiny change)
+
+	* BUGS: Use new binding of view-emacs-problems.
+
+2009-05-04   Simon Leinen  <simon.leinen@switch.ch>  (tiny change)
+
+	* Makefile.in (install-arch-dep): Avoid using $$(..) construct,
+	for Solaris compatibility.
+
+2009-04-25  Chong Yidong  <cyd@stupidchicken.com>
+
+	* configure: Regenerate.
+
+	* configure.in: Disable use of FreeType without libXft.
+
+2009-04-19  Jan Djärv  <jan.h.d@swipnet.se>
+
+	* configure.in (HAVE_GTK_FILE_SELECTION, HAVE_GTK_FILE_CHOOSER):
+	Check if it is declared in gtk.h.
+
+2009-04-12  Andreas Schwab  <schwab@linux-m68k.org>
+
+	* Makefile.in (install-arch-indep): Remove .gitignore files.
+
+2009-04-03  Kenichi Handa  <handa@m17n.org>
+
+	* INSTALL: Make the section "Complex Text Layout support
+	libraries" the first of "ADDITIONAL DISTRIBUTION FILES".
+
 2009-03-06  Dan Nicolaescu  <dann@ics.uci.edu>
 
 	* configure.in (rs6000-ibm-aix6*): Fix typo.

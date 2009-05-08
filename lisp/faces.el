@@ -1847,28 +1847,22 @@ according to the `background-mode' and `display-type' frame parameters."
 	   (bg-color (frame-parameter frame 'background-color))
 	   (terminal-bg-mode (terminal-parameter frame 'background-mode))
 	   (tty-type (tty-type frame))
+	   (default-bg-mode
+	     (if (or (window-system frame)
+		     (and tty-type
+			  (string-match "^\\(xterm\\|\\rxvt\\|dtterm\\|eterm\\)"
+					tty-type)))
+		 'light
+	       'dark))
+	   (non-default-bg-mode (if (eq default-bg-mode 'light) 'dark 'light))
 	   (bg-mode
 	    (cond (frame-background-mode)
 		  (bg-resource (intern (downcase bg-resource)))
 		  (terminal-bg-mode)
-		  ((and (null (window-system frame))
-			;; Unspecified frame background color can only
-			;; happen on tty's.
-			(member bg-color '(nil unspecified "unspecified-bg")))
-		   ;; There is no way to determine the background mode
-		   ;; automatically, so we make a guess based on the
-		   ;; terminal type.
-		   (if (and tty-type
-			    (string-match "^\\(xterm\\|rxvt\\|dtterm\\|eterm\\)"
-					  tty-type))
-		       'light
-		     'dark))
 		  ((equal bg-color "unspecified-fg") ; inverted colors
-		   (if (and tty-type
-			    (string-match "^\\(xterm\\|rxvt\\|dtterm\\|eterm\\)"
-					  tty-type))
-		       'dark
-		     'light))
+		   non-default-bg-mode)
+		  ((not (color-values bg-color frame))
+		   default-bg-mode)
 		  ((>= (apply '+ (color-values bg-color frame))
 		       ;; Just looking at the screen, colors whose
 		       ;; values add up to .6 of the white total
@@ -1930,7 +1924,14 @@ Value is the new parameter list."
   (let* ((name (or (cdr (assq 'name parameters))
 		   (cdr (assq 'name default-frame-alist))))
 	 (x-resource-name name)
-	 (res-geometry (if name (x-get-resource "geometry" "Geometry"))))
+	 (res-geometry (when name
+			 ;; FIXME: x-get-resource fails if the X
+			 ;; connection is not open, e.g. if we call
+			 ;; make-frame-on-display.  We should detect
+			 ;; this case here, and open the connection.
+			 ;; (Bug#3194).
+			 (ignore-errors
+			   (x-get-resource "geometry" "Geometry")))))
     (when res-geometry
       (let ((parsed (x-parse-geometry res-geometry)))
 	;; If the resource specifies a position, call the position

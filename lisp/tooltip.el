@@ -319,24 +319,28 @@ the buffer of PROCESS."
 ;;; Tooltip help.
 
 (defvar tooltip-help-message nil
-  "The last help message received via `tooltip-show-help'.")
+  "The last help message received via `show-help-function'.
+This is used by `tooltip-show-help' and
+`tooltip-show-help-non-mode'.")
 
 (defvar tooltip-previous-message nil
   "The previous content of the echo area.")
 
 (defun tooltip-show-help-non-mode (help)
-  "Function installed as `show-help-function' when tooltip is off."
+  "Function installed as `show-help-function' when Tooltip mode is off.
+It is also called if Tooltip mode is on, for text-only displays."
   (when (and (not (window-minibuffer-p)) ;Don't overwrite minibuffer contents.
-             ;; Don't know how to reproduce it in Elisp:
-             ;; Don't overwrite a keystroke echo.
-             ;; (NILP (echo_message_buffer) || ok_to_overwrite_keystroke_echo)
-             (not cursor-in-echo-area)) ;Don't overwrite a prompt.
+             (not cursor-in-echo-area))  ;Don't overwrite a prompt.
     (cond
      ((stringp help)
       (setq help (replace-regexp-in-string "\n" ", " help))
       (unless (or tooltip-previous-message
-		  (string-equal help (current-message)))
+		  (string-equal help (current-message))
+		  (and (stringp tooltip-help-message)
+		       (string-equal tooltip-help-message
+				     (current-message))))
         (setq tooltip-previous-message (current-message)))
+      (setq tooltip-help-message help)
       (let ((message-truncate-lines t)
             (message-log-max nil))
         (message "%s" help)))
@@ -350,21 +354,24 @@ the buffer of PROCESS."
 (defun tooltip-show-help (msg)
   "Function installed as `show-help-function'.
 MSG is either a help string to display, or nil to cancel the display."
-  (let ((previous-help tooltip-help-message))
-    (setq tooltip-help-message msg)
-    (cond ((null msg)
-	   ;; Cancel display.  This also cancels a delayed tip, if
-	   ;; there is one.
-	   (tooltip-hide))
-	  ((equal previous-help msg)
-	   ;; Same help as before (but possibly the mouse has moved).
-	   ;; Keep what we have.
-	   )
-	  (t
-	   ;; A different help.  Remove a previous tooltip, and
-	   ;; display a new one, with some delay.
-	   (tooltip-hide)
-	   (tooltip-start-delayed-tip)))))
+  (if (display-graphic-p)
+      (let ((previous-help tooltip-help-message))
+	(setq tooltip-help-message msg)
+	(cond ((null msg)
+	       ;; Cancel display.  This also cancels a delayed tip, if
+	       ;; there is one.
+	       (tooltip-hide))
+	      ((equal previous-help msg)
+	       ;; Same help as before (but possibly the mouse has moved).
+	       ;; Keep what we have.
+	       )
+	      (t
+	       ;; A different help.  Remove a previous tooltip, and
+	       ;; display a new one, with some delay.
+	       (tooltip-hide)
+	       (tooltip-start-delayed-tip))))
+    ;; On text-only displays, try `tooltip-show-help-non-mode'.
+    (tooltip-show-help-non-mode msg)))
 
 (defun tooltip-help-tips (event)
   "Hook function to display a help tooltip.

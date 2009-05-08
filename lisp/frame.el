@@ -120,7 +120,7 @@ affected by this variable."
 This function is called with no arguments and should return a new
 frame.  The default value calls `make-frame' with the argument
 `pop-up-frame-alist'."
-  :type '(choice (const nil) (function :tag "function"))
+  :type 'function
   :group 'frames)
 
 (defcustom special-display-frame-alist
@@ -732,7 +732,7 @@ You cannot specify either `width' or `height', you must use neither or both.
  (window-system . nil)	The frame should be displayed on a terminal device.
  (window-system . x)	The frame should be displayed in an X window.
 
- (terminal . ID)          The frame should use the terminal identified by ID.
+ (terminal . TERMINAL)  The frame should use the terminal object TERMINAL.
 
 Before the frame is created (via `frame-creation-function-alist'), functions on the
 hook `before-make-frame-hook' are run.  After the frame is created, functions

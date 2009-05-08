@@ -87,6 +87,7 @@ int charset_emacs;
 int charset_jisx0201_roman;
 int charset_jisx0208_1978;
 int charset_jisx0208;
+int charset_ksc5601;
 
 /* Value of charset attribute `charset-iso-plane'.  */
 Lisp_Object Qgl, Qgr;
@@ -318,7 +319,6 @@ load_charset_map (charset, entries, n_entries, control_flag)
 	    {
 	      memset (temp_charset_work->table.decoder, -1,
 		      sizeof (int) * 0x10000);
-	      temp_charset_work->for_encoder = 0;
 	    }
 	  else
 	    {
@@ -645,7 +645,7 @@ load_charset (charset, control_flag)
   if (inhibit_load_charset_map
       && temp_charset_work
       && charset == temp_charset_work->current
-      && (control_flag == 2 == temp_charset_work->for_encoder))
+      && ((control_flag == 2) == temp_charset_work->for_encoder))
     return;
 
   if (CHARSET_METHOD (charset) == CHARSET_METHOD_MAP)
@@ -728,6 +728,7 @@ map_charset_for_dump (c_function, function, arg, from, to)
 	}
       c++;
     }
+  UNGCPRO;
 }
 
 void
@@ -808,8 +809,8 @@ map_charset_chars (c_function, function, arg,
 
 	  charset = CHARSET_FROM_ID (XFASTINT (XCAR (XCAR (parents))));
 	  offset = XINT (XCDR (XCAR (parents)));
-	  this_from = from - offset;
-	  this_to = to - offset;
+	  this_from = from > offset ? from - offset : 0;
+	  this_to = to > offset ? to - offset : 0;
 	  if (this_from < CHARSET_MIN_CODE (charset))
 	    this_from = CHARSET_MIN_CODE (charset);
 	  if (this_to > CHARSET_MAX_CODE (charset))
@@ -1081,6 +1082,8 @@ usage: (define-charset-internal ...)  */)
       i = (i >> 12) << 12;
       for (; i <= charset.max_char; i += 0x1000)
 	CHARSET_FAST_MAP_SET (i, charset.fast_map);
+      if (charset.code_offset == 0 && charset.max_char >= 0x80)
+	charset.ascii_compatible_p = 1;
     }
   else if (! NILP (args[charset_arg_map]))
     {
@@ -1221,6 +1224,8 @@ usage: (define-charset-internal ...)  */)
 	charset_jisx0208_1978 = id;
       else if (ISO_CHARSET_TABLE (2, 0, 'B') == id)
 	charset_jisx0208 = id;
+      else if (ISO_CHARSET_TABLE (2, 0, 'C') == id)
+	charset_ksc5601 = id;
     }
 
   if (charset.emacs_mule_id >= 0)
@@ -2317,6 +2322,7 @@ init_charset_once ()
   charset_jisx0201_roman = -1;
   charset_jisx0208_1978 = -1;
   charset_jisx0208 = -1;
+  charset_ksc5601 = -1;
 
   for (i = 0; i < 128; i++)
     unibyte_to_multibyte_table[i] = i;
