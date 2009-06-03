@@ -424,8 +424,13 @@ static NSSet
 		  {
 		    NSCharacterSet *fset = [[fontMgr fontWithFamily: family
                         traits: 0 weight: 5 size: 12.0]	coveredCharacterSet];
-		    if (ns_charset_covers(fset, charset, pct))
-			[families addObject: family];
+		    if (fset)
+		      {
+			if (ns_charset_covers(fset, charset, pct))
+			  [families addObject: family];
+		      } 
+		    else
+		      NSLog(@"No charset for family: %@", family);
 		  }
 		if ([families count] > 0 || pct < 0.05)
 		    break;
@@ -493,7 +498,7 @@ ns_findfonts (Lisp_Object font_spec, BOOL isMatch)
 	list = Fcons (ns_descriptor_to_entity (desc,
 					 AREF (font_spec, FONT_EXTRA_INDEX),
 					 NULL), list);
-	if (ns_has_attribute (fdesc, NSFontSlantTrait))
+	if (ns_has_attribute (desc, NSFontSlantTrait))
 	    foundItal = YES;
       }
 
