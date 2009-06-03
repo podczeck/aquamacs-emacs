@@ -5804,7 +5804,7 @@ If POINT-AT-END, behaves as if point was at then end of
 a previously deleted region (now at POS)."
   (let ((del (assoc (buffer-substring-no-properties
 		     (max (point-min) (- pos 1)) 
-		     (min (1- (point-max)) (1+ pos)))
+		     (max (point-min) (min (1- (point-max)) (1+ pos))))
 		    smart-spacing-rules)))
     (when del
       (setq del (cdr del))
