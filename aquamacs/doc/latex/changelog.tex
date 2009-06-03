@@ -28,6 +28,9 @@ Reported by Uwe Pieczynski.
 \item Fixed a startup failure when environment variables with values where used that could no be encoded with the coding system assigned to the system's ``input source'' language.  (`locale-coding-system' is now set according to the locale in the default login shell.)
 Reported by André Berg.
 
+\item Fixed an error when deleting the whole buffer contents while smart-spacing-mode was on.
+Patch by Jon Shea.
+
 \item Fixed a potential security hole in smtpmail.
 Code by Simon Josefsson.
 
