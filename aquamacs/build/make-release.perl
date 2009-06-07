@@ -6,13 +6,13 @@
 # /Applications/Aquamacs Emacs PPC.app
 # then run this. 
 
-$PROJECT_DIR = '/Users/dr/Projects/Aquamacs';
+$PROJECT_DIR = '/Users/dr/ae22.git';
+$DMG = '/Users/dr/Projects/Aquamacs/AquamacsInstall.dmg';
 
 $INTEL_BINARY = '/Applications/Aquamacs Emacs.app';
 $PPC_BINARY = '/Applications/Aquamacs Emacs PPC.app';
 
 
-$DMG = "$PROJECT_DIR/AquamacsInstall.dmg";
 $RELEASE_NOTES = "$PROJECT_DIR/aquamacs/doc/latex/changes.pdf";
 
 $VERS=&sys("perl -ne 'print \$1 if (/defvar *aquamacs-version *\"(.*?)\"/);print \$1 if (/defvar *aquamacs-minor-version *\"(.*?)\"/);' < \"$INTEL_BINARY/Contents/Resources/site-lisp/site-start.el\"");
@@ -93,9 +93,9 @@ if ($VOL =~ /\/Volumes\/Aquam/i)
 #&sys("hdiutil resize AquaMacsInstall.R.dmg -sectors 407568");
 
 &sys("hdiutil detach \"$VOL\"");
-&sys("hdiutil convert  \"$DMG\" -format UDZO -imagekey  zlib-level=9 -o $target");
+&sys("hdiutil convert  \"$DMG\" -format UDBZ -imagekey  zlib-level=9 -o $target");
 
-# format UDBZ would be smaller (bzip2), but incompatible with OS X 10.3
+# format UDBZ is smaller (bzip2) and incompatible with OS X 10.3
 
 
 sub sys($)
