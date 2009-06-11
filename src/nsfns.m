@@ -1597,15 +1597,18 @@ LANGUAGE must be one of the languages returned by
 
 
 DEFUN ("ns-popup-font-panel", Fns_popup_font_panel, Sns_popup_font_panel,
-       0, 1, "",
+       0, 2, "",
        doc: /* Pop up the font panel. */)
-     (frame)
-     Lisp_Object frame;
+     (frame, face)
+     Lisp_Object frame, face;
 {
   id fm;
   struct frame *f;
 
   check_ns ();
+  BLOCK_INPUT;
+  /* must create instance to receive immediate events */
+  [NSColorPanel sharedColorPanel];
   fm = [NSFontManager sharedFontManager];
   if (NILP (frame))
     f = SELECTED_FRAME ();
@@ -1615,22 +1618,37 @@ DEFUN ("ns-popup-font-panel", Fns_popup_font_panel, Sns_popup_font_panel,
       f = XFRAME (frame);
     }
 
-  [fm setSelectedFont: ((struct nsfont_info *)f->output_data.ns->font)->nsfont
-           isMultiple: NO];
+  if (! NILP (face))
+    {
+      int face_id = lookup_named_face (f, face, 1);
+      if (face_id)
+	{
+	  struct face *face = FACE_FROM_ID (f, face_id);
+	  if (face)
+	    {
+	      [fm setSelectedFont:  ((struct nsfont_info *)face->font)->nsfont
+		       isMultiple: NO];
+	    }
+	}
+    } 
+  else
+    [fm setSelectedFont: ((struct nsfont_info *)f->output_data.ns->font)->nsfont
+	     isMultiple: NO];
   [fm orderFrontFontPanel: NSApp];
+  UNBLOCK_INPUT;
   return Qnil;
 }
 
 
 DEFUN ("ns-popup-color-panel", Fns_popup_color_panel, Sns_popup_color_panel,
-       0, 1, "",
+       0, 2, "",
        doc: /* Pop up the color panel.  */)
-     (frame)
-     Lisp_Object frame;
+     (frame, color)
+     Lisp_Object frame, color;
 {
   struct frame *f;
-
   check_ns ();
+  BLOCK_INPUT;
   if (NILP (frame))
     f = SELECTED_FRAME ();
   else
@@ -1638,8 +1656,18 @@ DEFUN ("ns-popup-color-panel", Fns_popup_color_panel, Sns_popup_color_panel,
       CHECK_FRAME (frame);
       f = XFRAME (frame);
     }
+  if (!NILP (color))
+    {
+      CHECK_STRING (color);
+      NSColor *col = nil;
+      if (ns_lisp_to_color (color, &col))
+	  error ("Unknown color");
+
+      [[NSColorPanel sharedColorPanel] setColor:col];
+    }
 
   [NSApp orderFrontColorPanel: NSApp];
+  UNBLOCK_INPUT;
   return Qnil;
 }
 
