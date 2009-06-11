@@ -4663,6 +4663,7 @@ extern void update_window_cursor (struct window *w, int on);
 - (void)changeFont: (id)sender
 {
   NSEvent *e =[[self window] currentEvent];
+  /* to do: use the appropriate face and not the frame default face */
   struct face *face =FRAME_DEFAULT_FACE (emacsframe);
   id newFont;
   float size;
@@ -4672,12 +4673,12 @@ extern void update_window_cursor (struct window *w, int on);
     return;
 
   if (newFont = [sender convertFont:
-                           ((struct nsfont_info *)face->font)->nsfont])
+			  ((struct nsfont_info *)face->font)->nsfont])
     {
       SET_FRAME_GARBAGED (emacsframe); /* now needed as of 2008/10 */
 
       emacs_event->kind = NS_NONKEY_EVENT;
-      emacs_event->modifiers = 0;
+      emacs_event->modifiers = EV_MODIFIERS (e);
       emacs_event->code = KEY_NS_CHANGE_FONT;
 
       size = [newFont pointSize];
@@ -4685,6 +4686,30 @@ extern void update_window_cursor (struct window *w, int on);
       ns_input_font = build_string ([[newFont familyName] UTF8String]);
       EV_TRAILER (e);
     }
+}
+
+/* called on color panel selection */
+- (void)changeColor: (id)sender
+{
+  NSEvent *e =[[self window] currentEvent];
+  struct face *face =FRAME_DEFAULT_FACE (emacsframe);
+  id newFont;
+  float size;
+
+  NSTRACE (changeColor);
+  if (!emacs_event)
+    return;
+
+  SET_FRAME_GARBAGED (emacsframe);
+
+  NSColor *c = [[NSColorPanel sharedColorPanel] color];
+  ns_input_color = ns_color_to_lisp (c);
+
+  emacs_event->kind = NS_NONKEY_EVENT;
+  emacs_event->modifiers = EV_MODIFIERS (e);
+  emacs_event->code = KEY_NS_CHANGE_COLOR;
+
+  EV_TRAILER (e);
 }
 
 
@@ -4697,7 +4722,7 @@ extern void update_window_cursor (struct window *w, int on);
   if (!emacs_event)
     return;
 
-  SET_FRAME_GARBAGED (emacsframe); 
+  SET_FRAME_GARBAGED (emacsframe);
 
   emacs_event->kind = NS_NONKEY_EVENT;
   emacs_event->modifiers = 0;

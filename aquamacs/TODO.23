@@ -43,6 +43,8 @@ Priority: 2
 
 - Options/Appearance (autofaces): use NS color panel
 Priority: 3    ==> Nathaniel
+David: mostly done.  Need to revise font selection so that the right font is shown in the panel to begin with.
+
 
 
 - Preferences panel: design a Cocoa/NS preferences panel and move the Options menu there.
@@ -86,15 +88,7 @@ Redisplay performance
 - performance issues (upstream report) ==> David
    a fix has been committed; further slowness remains
 
-
-Quitting application: brings up various frames, but minibuffer is not echoed in those frames.
-
-
-
-Startup
-hiding the initial frame causes Emacs to crash.
-
-
+ 
 
 
 COMPLETED / NOT NEEDED
@@ -121,3 +115,5 @@ DONE toolbar  [pending fix in GNU Emacs - reported]
 DONE face-remapping
 DONE Fullscreen mode (ObjC code)
 DONE revised aquamacs-tool-bar and (!!) aquamasc-autoface.e (face-set-attribute)
+DONE Quitting application: brings up various frames, but minibuffer is not echoed in those frames.
+DONE Startup: hiding the initial frame causes Emacs to crash.
