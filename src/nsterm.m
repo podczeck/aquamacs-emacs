@@ -4658,6 +4658,18 @@ extern void update_window_cursor (struct window *w, int on);
   [super dealloc];
 }
 
+- (unsigned int) validModesForFontPanel:(NSFontPanel *)fontPanel
+{
+  /* This doesn't work as intended.  Why?  Bug?/
+  return (NSFontPanelFaceModeMask |
+  	  NSFontPanelSizeModeMask |
+  	  NSFontPanelCollectionModeMask  |
+  	  NSFontPanelTextColorEffectModeMask  |
+  	  NSFontPanelDocumentColorEffectModeMask);  */
+
+  return  NSFontPanelAllModesMask
+    - NSFontPanelShadowEffectModeMask;
+}
 
 /* called on font panel selection */
 - (void)changeFont: (id)sender
@@ -4689,12 +4701,12 @@ extern void update_window_cursor (struct window *w, int on);
 }
 /* change font attributes */
 /*
-– (void)changeAttributes:(id)sender 
+– (void)changeAttributes:(id)sender
 {
     NSDictionary *oldAttributes = [self fontAttributes];
     NSDictionary *newAttributes = [sender convertAttributes: oldAttributes];
     [self setFontAttributes:newAttributes];
-    return; 
+    return;
 }
 */
 
@@ -4769,9 +4781,7 @@ extern void update_window_cursor (struct window *w, int on);
 }
 
 - (void)ignoreSpelling:(id)sender {
-  NSInteger tag = 1;
-  if (! NILP (current_buffer) ) 
-    tag = sxhash (current_buffer, 0);
+  NSInteger tag = sxhash (Fcurrent_buffer (), 0);
   
   [[NSSpellChecker sharedSpellChecker] ignoreWord:[[sender selectedCell] stringValue]
 			   inSpellDocumentWithTag: tag];
