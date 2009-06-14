@@ -111,7 +111,7 @@ INSTALLABLE_SCRIPTS = rcs-checkin grep-changelog
 # Things that Emacs runs internally, or during the build process,
 #  which should not be installed in bindir.
 UTILITIES=  profile${EXEEXT} digest-doc${EXEEXT} sorted-doc${EXEEXT} movemail${EXEEXT} cvtmail${EXEEXT} fakemail${EXEEXT} \
-            hexl${EXEEXT} update-game-score${EXEEXT}
+            hexl${EXEEXT} update-game-score${EXEEXT} cp-preserve${EXEEXT}
 
 DONT_INSTALL= test-distrib${EXEEXT} make-docfile${EXEEXT}
 
@@ -440,6 +440,9 @@ emacsclient${EXEEXT}: ${srcdir}/emacsclient.c ../src/config.h $(GETOPTDEPS)
 	   -DVERSION="\"${version}\"" \
 	   $(LOADLIBES) -o emacsclient
 
+cp-preserve${EXEEXT}: ${srcdir}/cp-preserve.c
+	$(CC) ${ALL_CFLAGS} ${srcdir}/cp-preserve.c -o cp-preserve
+
 hexl${EXEEXT}: ${srcdir}/hexl.c ../src/config.h
 	$(CC) ${ALL_CFLAGS} ${srcdir}/hexl.c $(LOADLIBES) -o hexl
 
@@ -450,5 +453,3 @@ update-game-score.o: ${srcdir}/update-game-score.c ../src/config.h $(GETOPT_H)
 	$(CC) -c ${CPP_CFLAGS} ${srcdir}/update-game-score.c \
 	  -DHAVE_SHARED_GAME_DIR="\"$(gamedir)\""
 
-mac-fix-env: ${srcdir}/mac-fix-env.m
-	$(CC) ${ALL_CFLAGS} -o mac-fix-env ${srcdir}/mac-fix-env.m -prebind -framework Foundation

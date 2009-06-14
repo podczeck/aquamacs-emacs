@@ -1828,6 +1828,129 @@ transparency and 1 is opaque.  */)
 }
 
 
+
+
+DEFUN ("ns-eval-priv", Fns_eval_priv, Sns_eval_priv, 1, 3, "",
+       doc: /* Execute command with administrator privileges 
+Runs command (string) with arguments (list of strings).
+The output is discarded.  
+If token is nil, request authorization and release it after
+the operation.  If it is Qt, retain authorization and
+return the authorization token (a string). If it is a 
+string, it specifies the previously obtained authorization
+token, which will be reused if valid.
+Signals an error if the authentication fails.
+Returns non-nil if there was an execution error.*/)
+     (command, arguments, token)
+     Lisp_Object command, arguments, token;
+{
+  OSStatus err;
+  AuthorizationRef gAuth = NULL;
+  char* args[30];
+  Lisp_Object auth_token = Qnil;
+
+  /*
+  FILE *commPipe = NULL;
+  int status;
+  int result = EXIT_FAILURE;
+  */
+
+
+  check_ns();
+  BLOCK_INPUT;
+  CHECK_STRING (command);
+  int i=0;
+  Lisp_Object tail;
+  for (tail = arguments; CONSP (tail) && i<30; tail = XCDR (tail), i++)
+    { 
+      CHECK_STRING (XCAR (tail));
+      args[i] = (char *) SDATA (XCAR (tail));
+    }
+  args[i] = 0;
+
+  if (NILP (token) || (EQ (token, Qt)))
+    {
+      AuthorizationItem right = { kAuthorizationRightExecute,
+				  strlen(SDATA (command)), SDATA (command), 0 };
+      AuthorizationRights rightset = { 1, &right };
+      
+      err = AuthorizationCreate (&rightset, kAuthorizationEmptyEnvironment,
+				 kAuthorizationFlagInteractionAllowed |
+				 kAuthorizationFlagExtendRights, &gAuth);
+    
+      AuthorizationExternalForm extForm;
+      if (AuthorizationMakeExternalForm(gAuth, &extForm) == noErr)
+	{
+	  char copy[kAuthorizationExternalFormLength+1];
+	  strncpy(copy, extForm.bytes, kAuthorizationExternalFormLength);
+	  copy[kAuthorizationExternalFormLength] = '\0';
+	  auth_token = build_string (copy);
+	}
+      /* maybe it would be safer to just keep the auth token
+	 internally and not export it to the Lisp level.
+	 OTOH, we could, this way, get separate authorizations for
+	 different files, which would be nice. */
+      assert(err == noErr);
+      assert( (err == noErr) == (gAuth != NULL) );
+
+
+    }
+  else
+    {
+      CHECK_STRING (token);
+      err = AuthorizationCreateFromExternalForm (SDATA(token), &gAuth);
+      auth_token = token;
+	
+      if (err)
+	error("Invalid authorization token.");
+    }
+ 
+  err = AuthorizationExecuteWithPrivileges (gAuth,
+					    SDATA(command),
+					    kAuthorizationFlagDefaults,
+					    args,
+					    NULL /* &commPipe */
+					    );
+  /*
+  if (err == errAuthorizationSuccess)
+    {
+      if (! NILP (input) )
+	{
+	  CHECK_STRING (input);
+	  // /* check: multi-byte?
+	  fwrite(SDATA (input), 1, strlen(SDATA(input)),commPipe);
+	  fflush(commPipe);
+	  // /* Close the communication pipe to let the child know we are done.
+	  fclose(commPipe);
+	  // /* Wait for the child of AuthorizationExecuteWithPrivileges to exit. 
+	  if (wait(&status) != -1 && WIFEXITED(status))
+	    {
+	      result = WEXITSTATUS(status);
+	    }
+
+	}
+  receivePipeFileHandle = [[NSFileHandle alloc] initWithFileDescriptor:fileno (commPipe)];
+
+    }
+*/
+  if (EQ (token, Qnil))
+    {
+      AuthorizationFree (gAuth, kAuthorizationFlagDefaults);
+      auth_token = Qnil;
+    }
+
+  UNBLOCK_INPUT;
+
+  if (err == errAuthorizationToolExecuteFailure)
+    error("Execution failed", (int) err);
+
+  if (err != errAuthorizationSuccess)
+    error("Authentication failed, error %d", (int) err);
+  
+  return auth_token;
+}
+
+
 DEFUN ("x-server-max-request-size", Fx_server_max_request_size,
        Sx_server_max_request_size,
        0, 1, 0,
@@ -3129,6 +3252,8 @@ be used as the image of the icon representing the frame.  */);
   defsubr (&Sx_hide_tip);
 
   defsubr (&Sns_open_help_anchor);
+
+  defsubr (&Sns_eval_priv);
 
   /* used only in fontset.c */
   check_window_system_func = check_ns;
