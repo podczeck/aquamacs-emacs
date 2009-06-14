@@ -1,3 +1,31 @@
+2009-06-13  Chong Yidong  <cyd@stupidchicken.com>
+
+	* simple.el (kill-visual-line): Rewrite (Bug#3437).  Don't try to
+	handle kill-whole-line, as it doesn't make sense in this context.
+
+2009-06-12  Sam Steingold  <sds@gnu.org>
+
+	* vc-hg.el (vc-hg-log-switches): Add defcustom.
+	(vc-hg-print-log): Use it.
+
+2009-06-12  Kenichi Handa  <handa@m17n.org>
+
+	* international/eucjp-ms.el: Re-generated.
+
+2009-06-10  Glenn Morris  <rgm@gnu.org>
+
+	* calendar/cal-dst.el (calendar-time-zone-daylight-rules):
+	Fix typo in 2008-04-02 change.
+
+2009-06-10  Kenichi Handa  <handa@m17n.org>
+
+	* composite.el (compose-gstring-for-terminal): For zero-width
+	characters of Unicode category `Cf', simply replace it with SPC.
+
+2009-06-09  Agustín Martín <agustin.martin@hispalinux.es>
+
+	* ispell.el: Make `ispell-dictionary' customizable (#2555)
+
 2009-06-08  Michael Albinus  <michael.albinus@gmx.de>
 
 	* ediff-util.el (ediff-compute-custom-diffs-maybe): Handle remote
