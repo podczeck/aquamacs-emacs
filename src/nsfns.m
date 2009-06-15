@@ -1830,7 +1830,7 @@ transparency and 1 is opaque.  */)
 
 
 
-DEFUN ("ns-eval-priv", Fns_eval_priv, Sns_eval_priv, 1, 3, "",
+DEFUN ("ns-exec-priv", Fns_exec_priv, Sns_exec_priv, 1, 3, "",
        doc: /* Execute command with administrator privileges 
 Runs command (string) with arguments (list of strings).
 The output is discarded.  
@@ -1872,6 +1872,18 @@ Returns non-nil if there was an execution error.*/)
     }
   args[i] = 0;
 
+  if (!NILP (token) && !EQ (token, Qt))
+    {
+      err = AuthorizationCreateFromExternalForm (SDATA(token), &gAuth);
+	
+      if (err)
+	/* try to acquire a new token */
+	token = Qt;
+      else
+	auth_token = token;
+    }
+    
+
   if (NILP (token) || (EQ (token, Qt)))
     {
       AuthorizationItem right = { kAuthorizationRightExecute,
@@ -1882,6 +1894,9 @@ Returns non-nil if there was an execution error.*/)
 				 kAuthorizationFlagInteractionAllowed |
 				 kAuthorizationFlagExtendRights, &gAuth);
     
+      if (!err == noErr || gAuth == NULL)
+	error("Error acquiring authorization.");
+      
       AuthorizationExternalForm extForm;
       if (AuthorizationMakeExternalForm(gAuth, &extForm) == noErr)
 	{
@@ -1894,19 +1909,6 @@ Returns non-nil if there was an execution error.*/)
 	 internally and not export it to the Lisp level.
 	 OTOH, we could, this way, get separate authorizations for
 	 different files, which would be nice. */
-      assert(err == noErr);
-      assert( (err == noErr) == (gAuth != NULL) );
-
-
-    }
-  else
-    {
-      
-      err = AuthorizationCreateFromExternalForm (SDATA(token), &gAuth);
-      auth_token = token;
-	
-      if (err)
-	error("Invalid authorization token.");
     }
  
   err = AuthorizationExecuteWithPrivileges (gAuth,
@@ -1915,7 +1917,8 @@ Returns non-nil if there was an execution error.*/)
 					    args,
 					    &commPipe
 					    );
- 
+  int child;
+  wait(&child);
   //  Finsert (1, Fcons ( build_string (c), Qnil))
   if (err == errAuthorizationSuccess && commPipe != NULL)
     {
@@ -1945,6 +1948,7 @@ Returns non-nil if there was an execution error.*/)
 	/* insert_string(c); */
       } while (n==100);
 
+      fclose(commPipe);
     }
   if (EQ (token, Qnil))
     {
@@ -3266,7 +3270,7 @@ be used as the image of the icon representing the frame.  */);
 
   defsubr (&Sns_open_help_anchor);
 
-  defsubr (&Sns_eval_priv);
+  defsubr (&Sns_exec_priv);
 
   /* used only in fontset.c */
   check_window_system_func = check_ns;

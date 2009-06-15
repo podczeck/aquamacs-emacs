@@ -17,7 +17,7 @@
   
     ;; is there a copy?
     ;; if so, check to make sure it is 
-    (print (format "external: fun %s %s" fun args))
+    ;; (print (format "external: fun %s %s" fun args))
     (cond
      ((memq fun '(insert-file-contents))
       ;; first arg MUST be filename
@@ -28,21 +28,20 @@
       ;; call emacs process
       ;; maybe convert file name to file-truename??
       (let ((code
-	     (with-output-to-string
-	       (let ((print-level nil) (print-length nil))
-		 (print (cons fun args))))))
+	     (let ((print-level nil) (print-length nil))
+	       (format "%S" (cons fun args)))))
 	
-	(with-temp-buffer
-	  (suedit-exec (car args)
-		       (format "%s../Aquamacs" exec-directory) ;; todo: fix me
-		       (list  "-batch" "-Q" "-eval" (format "(print %s)" code)))
-	  (print (format "busiz %s" (buffer-size)))
-	  (when (> (buffer-size) 0)
-	    (goto-char (point-min))
-	    (print (format "result: %s" (read (current-buffer))))
-	    (goto-char (point-min))
-	    (read (current-buffer)))))
-    ))))
+	(condition-case nil
+	      
+	    (car (read-from-string 
+		  (with-temp-buffer
+		    (suedit-exec (car args)
+			     (format "%s../Aquamacs" exec-directory) ;; todo: fix me
+			     (list  "-batch" "-Q" "-eval" (format "(print %s)" code)))
+		    (buffer-string))))
+	  (error nil))
+	))
+    )))
 
 ;; rally, update the copy
 ;; but a lot of calls need to be sent to a local "emacs" binary, i.e. AE itself
@@ -80,11 +79,6 @@
 
  
 (defun suedit-update-copy (file)
-  (suedit-exec file "/bin/cp" (list file
-			      copy)))
-
-(defun suedit-exec (file command args)
-  (print file)
   (let* ((file (file-truename file))
 	 (entry (assoc file suedit-copies))
 	 (copy (or (nth 1 entry)
@@ -95,10 +89,31 @@
 	       (file-readable-p copy))
 
     (setq auth-code
-	  (ns-eval-priv command
-			args
+	  (ns-exec-priv "/bin/cp"
+			(list file
+			      copy)
 			(or auth-code
 			    t))))
+
+  (unless entry
+    (setq suedit-copies (cons 
+			 (list file copy auth-code)
+			 suedit-copies)))
+  copy))
+
+(defun suedit-exec (file command args)
+  (let* ((file (file-truename file))
+	 (entry (assoc file suedit-copies))
+	 (copy (or (nth 1 entry)
+		   (make-temp-file "Aquamacs")))
+	 (auth-code (nth 2 entry)))
+    
+
+    (setq auth-code
+	  (ns-exec-priv command
+			args
+			(or auth-code
+			    t)))
 
   (unless entry
     (setq suedit-copies (cons 
@@ -125,7 +140,7 @@
   (when suedit-original-buffer-file
 
     (setq suedit-authorization-code
-	  (ns-eval-priv (expand-file-name "cp-preserve"
+	  (ns-exec-priv (expand-file-name "cp-preserve"
 					  exec-directory) 
 			(list buffer-file-name
 			      suedit-original-buffer-file)
@@ -141,7 +156,7 @@
                         (confirm-nonexistent-file-or-buffer)))
   (let ((tmp (make-temp-file "Aquamacs")))
 
-    (ns-eval-priv "/bin/cp" (list file tmp))
+    (ns-exec-priv "/bin/cp" (list file tmp))
     
     (set (make-local-variable 'suedit-original-buffer-file)
 	 file)
@@ -157,28 +172,36 @@
 ;; (let ((code '))
 ;;   (suedit-exec "test" "emacs" (list nil t nil "-batch" "-Q" "-eval" (format "(print %s)" code))))
 
-
-(setq auth (ns-eval-priv "/usr/bin/emacs"
-	     (list "-batch" "-Q" "-eval" (format "(print (+ 4 5))"))
-auth))
-
-(setq auth (ns-eval-priv (format "%s../Aquamacs" exec-directory)
-	     (list "-batch" "-Q" "-eval" "
-(print (substitute-in-file-name \"/tmp/xxx1\"))
-")
-auth))
+(car (read-from-string 
+(with-temp-buffer
+  (setq auth (ns-exec-priv (format "%s../Aquamacs" exec-directory)
+	     '("-batch" "-Q" "-eval" "(print (expand-file-name \"/tmp/xxx1\" nil))")
+	     auth))
+  (buffer-string))))
 
 
-(setq auth (ns-eval-priv "/bin/echo"
+(setq auth t)
+(setq count 0)
+(setq coll nil)
+(dotimes (n 50)
+(with-temp-buffer
+  (setq auth (ns-exec-priv (format "%s../Aquamacs" exec-directory)
+	     (list "-batch" "-Q" "-eval" "(print (substitute-in-file-name \"/tmp/xxx1\"))")
+	     auth))
+  (setq coll (cons (buffer-string) coll))
+  (setq count (+ count (buffer-size)))))
+
+
+(setq auth (ns-exec-priv "/bin/echo"
 	     (list "/tmp/t4")
 auth))
 
-(setq auth (ns-eval-priv "/bin/sleep"
+(setq auth (ns-exec-priv "/bin/sleep"
 	     (list "3")
 auth))
 
 (with-temp-buffer
-  (ns-eval-priv "/bin/cat"
+  (ns-exec-priv "/bin/cat"
 	      (list "/tmp/ACT-UP.html")
 	      auth)
   (goto-char 0)
