@@ -1,11 +1,14 @@
+(defvar suedit-copies nil)
+
 (when nil
 ;; put file name in handler
 
 (add-to-list 'file-name-handler-alist
-	     '("/tmp/xxx" . suedit-handler))
+	     '("/tmp/xxx1" . suedit-handler))
+
+) ; when nil
 
 
-(defvar suedit-copies nil)
 ;; contains list of (file copy auth-code)
 
 
@@ -14,7 +17,7 @@
   
     ;; is there a copy?
     ;; if so, check to make sure it is 
-
+    (print (format "external: fun %s %s" fun args))
     (cond
      ((memq fun '(insert-file-contents))
       ;; first arg MUST be filename
@@ -30,9 +33,15 @@
 		 (print (cons fun args))))))
 	
 	(with-temp-buffer
-	  (suedit-exec "emacs" (list nil t nil "-batch" "-Q" "-eval" (format "(print %s)" code)))
-	  (goto-char (point-min))
-	  (read (current-buffer))))
+	  (suedit-exec (car args)
+		       (format "%s../Aquamacs" exec-directory) ;; todo: fix me
+		       (list  "-batch" "-Q" "-eval" (format "(print %s)" code)))
+	  (print (format "busiz %s" (buffer-size)))
+	  (when (> (buffer-size) 0)
+	    (goto-char (point-min))
+	    (print (format "result: %s" (read (current-buffer))))
+	    (goto-char (point-min))
+	    (read (current-buffer)))))
     ))))
 
 ;; rally, update the copy
@@ -41,8 +50,6 @@
 ;; a second call (thanks to caching) is going to be fast
 
 ;; (file-maybe-accessible-by-root "/tmp/rdir/test")
-
-
 
 ; go up the directory hierarchy
 
@@ -77,9 +84,9 @@
 			      copy)))
 
 (defun suedit-exec (file command args)
-
+  (print file)
   (let* ((file (file-truename file))
-	 (entry (assq-equal file suedit-copies))
+	 (entry (assoc file suedit-copies))
 	 (copy (or (nth 1 entry)
 		   (make-temp-file "Aquamacs")))
 	 (auth-code (nth 2 entry)))
@@ -99,7 +106,6 @@
 			 suedit-copies)))
   copy))
 
-) ; when nil
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
@@ -144,3 +150,43 @@
     (add-hook 'before-save-hook 'suedit-before-save 'append 'local)
     (add-hook 'after-save-hook 'suedit-after-save 'append 'local)
 ))
+
+(defvar auth t)
+(setq auth t)
+(when nil
+;; (let ((code '))
+;;   (suedit-exec "test" "emacs" (list nil t nil "-batch" "-Q" "-eval" (format "(print %s)" code))))
+
+
+(setq auth (ns-eval-priv "/usr/bin/emacs"
+	     (list "-batch" "-Q" "-eval" (format "(print (+ 4 5))"))
+auth))
+
+(setq auth (ns-eval-priv (format "%s../Aquamacs" exec-directory)
+	     (list "-batch" "-Q" "-eval" "
+(print (substitute-in-file-name \"/tmp/xxx1\"))
+")
+auth))
+
+
+(setq auth (ns-eval-priv "/bin/echo"
+	     (list "/tmp/t4")
+auth))
+
+(setq auth (ns-eval-priv "/bin/sleep"
+	     (list "3")
+auth))
+
+(with-temp-buffer
+  (ns-eval-priv "/bin/cat"
+	      (list "/tmp/ACT-UP.html")
+	      auth)
+  (goto-char 0)
+  (read (current-buffer)))
+
+
+(call-process (format "%s../Aquamacs" exec-directory) nil nil nil
+	     "-batch" "-Q" "-eval" "(make-directory \"/tmp/t66\")")
+)
+
+

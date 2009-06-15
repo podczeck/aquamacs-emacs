@@ -1849,16 +1849,20 @@ Returns non-nil if there was an execution error.*/)
   char* args[30];
   Lisp_Object auth_token = Qnil;
 
-  /*
+  
   FILE *commPipe = NULL;
   int status;
   int result = EXIT_FAILURE;
-  */
 
 
   check_ns();
-  BLOCK_INPUT;
+
+
   CHECK_STRING (command);
+  if (! NILP (token) && ! EQ (token, Qt))
+    CHECK_STRING (token);
+
+  BLOCK_INPUT;
   int i=0;
   Lisp_Object tail;
   for (tail = arguments; CONSP (tail) && i<30; tail = XCDR (tail), i++)
@@ -1897,7 +1901,7 @@ Returns non-nil if there was an execution error.*/)
     }
   else
     {
-      CHECK_STRING (token);
+      
       err = AuthorizationCreateFromExternalForm (SDATA(token), &gAuth);
       auth_token = token;
 	
@@ -1909,30 +1913,39 @@ Returns non-nil if there was an execution error.*/)
 					    SDATA(command),
 					    kAuthorizationFlagDefaults,
 					    args,
-					    NULL /* &commPipe */
+					    &commPipe
 					    );
-  /*
-  if (err == errAuthorizationSuccess)
+ 
+  //  Finsert (1, Fcons ( build_string (c), Qnil))
+  if (err == errAuthorizationSuccess && commPipe != NULL)
     {
-      if (! NILP (input) )
-	{
-	  CHECK_STRING (input);
-	  // /* check: multi-byte?
-	  fwrite(SDATA (input), 1, strlen(SDATA(input)),commPipe);
-	  fflush(commPipe);
-	  // /* Close the communication pipe to let the child know we are done.
-	  fclose(commPipe);
-	  // /* Wait for the child of AuthorizationExecuteWithPrivileges to exit. 
-	  if (wait(&status) != -1 && WIFEXITED(status))
-	    {
-	      result = WEXITSTATUS(status);
-	    }
+      char c[102]; 
 
-	}
-  receivePipeFileHandle = [[NSFileHandle alloc] initWithFileDescriptor:fileno (commPipe)];
+      int n=0;
+  
+      Lisp_Object text;
+
+      do {
+	n=fread(c,1,100,commPipe); c[n] = '\0'; 
+	/* To Do:
+	   this won't work with null bytes in the stream. */
+
+	text = build_string (c);
+	if (NILP (current_buffer->enable_multibyte_characters)
+	    != ! STRING_MULTIBYTE (text))
+	  text = (STRING_MULTIBYTE (text)
+		  ? Fstring_as_unibyte (text)
+		  : Fstring_to_multibyte (text));
+	/* Insert before markers in case we are inserting where
+	   the buffer's mark is, and the user's next command is Meta-y.  */
+	insert_from_string_before_markers (text, 0, 0,
+					   SCHARS (text), SBYTES (text), 0);
+
+
+	/* insert_string(c); */
+      } while (n==100);
 
     }
-*/
   if (EQ (token, Qnil))
     {
       AuthorizationFree (gAuth, kAuthorizationFlagDefaults);
