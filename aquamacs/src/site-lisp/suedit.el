@@ -1,3 +1,22 @@
+emacs tries to create various help files e.g. .dir-locals.el  [this should probably be fixed in Aquamacs].
+but also auto-save files etc.
+all of this will fail in the root-only directory.
+
+perhaps we should recreate the directory structure in a temporary directory or in ~/Library
+
+/tmp/503/Aquamacs/etc/apache/httpd.conf 
+
+these are all only accessible by the current user.
+
+create when opening
+
+
+alas, C-x C-f file completion doesn't work without root access.
+
+
+
+
+
 (defvar suedit-copies nil)
 
 (when nil
@@ -23,7 +42,19 @@
       ;; first arg MUST be filename
       ;; use the copy instead of buffer-file-name
       ;; we assume that the buffer is current.
-      (apply fun (cons (suedit-update-copy (car args)) (cdr args))))
+      (apply fun (cons (suedit-update-copy (car args)) (cdr args)))
+      (if (nth 1 args) ;; visit?
+	  (set-visited-file-name (car args) 'no-query)))
+     ((memq fun '(write-region))
+      ;; first arg MUST be filename
+      ;; use the copy instead of buffer-file-name
+      ;; we assume that the buffer is current.
+      (let ((file (nth 2 args)))
+	(setf (nth 2 args) (suedit-update-copy file))
+	(apply fun args)
+	;; copy back
+	(suedit-restore-copy file)
+	(set-visited-file-name file 'no-query)))
      (t
       ;; call emacs process
       ;; maybe convert file name to file-truename??
@@ -77,7 +108,26 @@
 	(setq dir nil)))
     readable-by-root))
 
- 
+ (defun suedit-restore-copy (file)
+
+  (let* ((file (file-truename file))
+	 (entry (assoc file suedit-copies))
+	 (copy (nth 1 entry))
+	 (auth-code (nth 2 entry)))
+    
+  (if (and copy
+	   (file-readable-p copy))
+
+    (setq auth-code
+	  (ns-exec-priv "/bin/cp"
+ 			(list copy file)
+			(or auth-code
+			    t))))
+
+  (if entry
+      (setf (nth 2 (assoc file suedit-copies)) auth-code)
+    )
+))
 (defun suedit-update-copy (file)
   (let* ((file (file-truename file))
 	 (entry (assoc file suedit-copies))
@@ -88,6 +138,7 @@
   (unless (and auth-code
 	       (file-readable-p copy))
 
+
     (setq auth-code
 	  (ns-exec-priv "/bin/cp"
 			(list file
@@ -95,7 +146,8 @@
 			(or auth-code
 			    t))))
 
-  (unless entry
+  (if entry
+      (setf (nth 2 (assoc file suedit-copies)) auth-code)
     (setq suedit-copies (cons 
 			 (list file copy auth-code)
 			 suedit-copies)))
@@ -115,11 +167,12 @@
 			(or auth-code
 			    t)))
 
-  (unless entry
+  (if entry
+      (setf (nth 2 (assoc file suedit-copies)) auth-code)
     (setq suedit-copies (cons 
 			 (list file copy auth-code)
 			 suedit-copies)))
-  copy))
+  ))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
