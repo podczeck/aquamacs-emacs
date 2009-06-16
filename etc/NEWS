@@ -496,10 +496,9 @@ leading `C-x', e.g. `C-x C-= C-= C-=' increases the face height by
 three steps.  Each step scales the height of the default face by the
 value of the variable `text-scale-mode-step'.
 
-*** The command `buffer-face-mode' prompts for a face name, and remaps
-the default face in the current buffer to that specified face.  The
-command `variable-pitch-mode' turns on Buffer Face mode for the
-`variable-pitch' face.
+*** The commands buffer-face-mode and buffer-face-set can be used to
+remap the default face in the current buffer.  See "Buffer Face mode",
+under New Modes and Packages.
 
 ** Primary selection changes
 +++
@@ -583,14 +582,19 @@ are ignored.  Customize the `tooltip' face instead.
 
 * New Modes and Packages in Emacs 23.1
 
-** FIXME add details of new packages imported from lisp/gnus.
-[Maybe some information from doc/misc/gnus-coding.texi can be reused]
-
 ** Auto Composition Mode is a minor mode that composes characters
 automatically when they are displayed.  It is globally on by default.
 It uses `auto-composition-function' (default `auto-compose-chars').
 
 ** Bubbles, a new game, is similar to SameGame.
+
+** Buffer Face mode is a minor mode for remapping the default face in
+the current buffer.  The variable `buffer-face-mode-face' specifies
+the face to remap to.  The command `buffer-face-set' prompts for a
+face name, sets `buffer-face-mode-face' to it, and enables
+buffer-face-mode.  See "Face changes", under Editing Changes, for a
+description of face remapping.
+
 ---
 ** butterfly flips the desired bit on the drive platter.
 See http://xkcd.com/378/
@@ -931,7 +935,7 @@ history.  See `Minibuffer changes', above.
 +++
 ** MH-E
 
-*** Upgraded to MH-E version 8.1.  See MH-E-NEWS for details.
+*** Upgraded to MH-E version 8.2.  See MH-E-NEWS for details.
 
 ** Python
 *** The file etc/emacs.py now supports both Python 2 and 3, meaning
@@ -1321,6 +1325,11 @@ temporary-file-directory instead.
 removed.  The function now takes extra arguments for specifying
 arbitrary abbrev properties.
 
+** end-of-defun-function is now guaranteed to work only when called
+from the start of a defun.  It must now leave point exactly at the end
+of defun, since `end-of-defun' now itself moves forward over
+whitespace after calling it.
+
 
 * Lisp Changes in Emacs 23.1
 
@@ -1379,8 +1388,9 @@ like this:
 ** clone-indirect-buffer now runs the clone-indirect-buffer-hook.
 
 +++
-** `beginning-of-defun-function' now takes one argument, the count
-given to `beginning-of-defun'.
+** `beginning-of-defun-function' now takes one argument, the count given to
+`beginning-of-defun'.  (N.B. `end-of-defun-function' doesn't take any
+arguments.)
 
 +++
 ** `file-remote-p' has new optional parameters IDENTIFICATION and CONNECTED.

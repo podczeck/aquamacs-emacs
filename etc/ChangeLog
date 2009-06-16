@@ -1,3 +1,22 @@
+2009-06-15  Alan Mackenzie  <acm@muc.de>
+
+	* NEWS: Document changes to end-of-defun-function, clarifying
+	entry for beginning-of-defun-function.
+
+2009-06-13  Bill Wohler  <wohler@newt.com>
+
+	Release MH-E version 8.2.
+
+	* NEWS, MH-E-NEWS: Update for MH-E release 8.2.
+
+2009-06-12  Kenichi Handa  <handa@m17n.org>
+
+	* charsets/*.map: All re-generated.
+
+2009-06-08  Kenichi Handa  <handa@m17n.org>
+
+	* HELLO: Downcase "suomi".
+
 2009-05-25  Werner Lemberg  <wl@gnu.org>
 
 	* tutorial/TUTORIAL.de: Updated; synchronize with TUTORIAL.
