@@ -1575,7 +1575,7 @@ listed here."
 		       en))
 	      (title (with-temp-buffer
 		       (insert-file-contents
-			(expand-file-name tut tutorial-directory)
+			(expand-file-name tut data-directory)
 			nil 0 256)
 		       (search-forward ".")
 		       (buffer-substring (point-min) (1- (point))))))
