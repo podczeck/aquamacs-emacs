@@ -62,6 +62,9 @@ Changes in this code are ignored during the online version check.")
   (setq unicode-emacs 0)
   (require 'cocoa-compatibility))
 
+;; compatibility for Aquamacs 1.8 (about screen bug)
+(setq tutorial-directory data-directory)
+
 (when ;; do not load this twice 
     (not (memq 'aquamacs-site-start features))
  
