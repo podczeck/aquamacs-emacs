@@ -606,14 +606,14 @@ subsequently create.  Upon entering text-mode, the function
   (define-key menu-bar-options-menu [line-wrapping] nil))
 
 (define-key menu-bar-options-menu [auto-fill-mode]
-  '(menu-item "Hard Word Wrap"
+  '(menu-item "Hard Word Wrap (here)"
               toggle-auto-fill
 	      :help "Automatically fill text between left and right margins (Auto Fill)"
 	      :enable (menu-bar-menu-frame-live-and-visible-p)
               :button (:toggle . auto-fill-function)))
 
 (define-key-after menu-bar-options-menu [word-wrap]
-  '(menu-item "Soft Word Wrap\t\t"
+  '(menu-item "Soft Word Wrap (here)"
 	      toggle-word-wrap
 	      :help "Wrap long lines without inserting carriage returns (Word Wrap)"
 	      :enable (menu-bar-menu-frame-live-and-visible-p)
@@ -636,7 +636,9 @@ subsequently create.  Upon entering text-mode, the function
 				   (or (eq 'auto-detect-wrap text-mode-hook)
 				       (eq 'auto-detect-longlines text-mode-hook)))))
   'word-wrap)
- 
+
+(define-key-after menu-bar-options-menu [word-wrap-separator] '(menu-item "--") 'word-wrap)
+
 ;; (define-key-after menu-bar-options-menu [global-smart-spacing]
 ;;   (menu-bar-make-mm-toggle
 ;;    global-smart-spacing-mode
@@ -652,7 +654,7 @@ subsequently create.  Upon entering text-mode, the function
 	      :button (:toggle . (if (listp text-mode-hook)
 				     (member 'smart-spacing-mode text-mode-hook)
 				   (eq 'smart-spacing-mode text-mode-hook))))
-	      'truncate-lines)
+	      'auto-wrap)
 
 (defun menu-bar-text-mode-smart-spacing ()
   "Toggle `smart-spacing-mode' in `text-mode-hook'"
