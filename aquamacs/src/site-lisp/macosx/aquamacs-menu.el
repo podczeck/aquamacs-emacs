@@ -293,8 +293,24 @@ customization buffer."
   '(menu-item "Open Directory...                 " dired
 	      :enable (menu-bar-non-minibuffer-window-p)
 	      :help "Read a directory, to operate on its files"))
+
+(require 'recentf)
+(ats "recentf loaded")
 (aquamacs-set-defaults 
- '((recentf-menu-before  "Open Directory...                 ")))
+ '((recentf-menu-before "Open Directory...                 ")
+   (recentf-max-menu-items 25)
+   ;; must be set before turning on recentf mode
+   (recentf-keep ( mac-is-mounted-volume-p file-remote-p file-readable-p))
+   (recentf-filename-handlers '(abbreviate-file-name))
+   (recentf-menu-filter aquamacs-recentf-show-basenames)))
+
+(setq recentf-menu-items-for-commands
+      (list ["Clear Menu"
+	     recentf-clearlist
+	     :help "Remove all excluded and non-kept files from the recent list"
+	     :active t]))
+(global-set-key "\C-x\ \C-r" 'recentf-open-files)  
+
 (recentf-mode 1) 
 
 ;; redefine this
@@ -1478,24 +1494,6 @@ that should be represented in the Aquamacs menus."
 )
 )
 ;; --done
-
-(require 'recentf)
-(ats "recentf loaded")
-(aquamacs-set-defaults 
- '(
-   (recentf-max-menu-items 25)
-  (recentf-keep ( mac-is-mounted-volume-p file-remote-p file-readable-p))
-   (recentf-filename-handlers '(abbreviate-file-name))
-   (recentf-menu-filter aquamacs-recentf-show-basenames)))  
-(setq recentf-menu-items-for-commands
-      (list ["Clear Menu"
-	     recentf-clearlist
-	     :help "Remove all excluded and non-kept files from the recent list"
-	     :active t]))
-(global-set-key "\C-x\ \C-r" 'recentf-open-files)  
-
-
-
 
 
 (add-hook 'menu-bar-update-hook 'aquamacs-update-menu)
