@@ -53,49 +53,5 @@ $noresave{$key} = "$nosave";
 # labels from external_latex_labels array.
 
 
-$key = q/buffers.jpg/;
-$external_latex_labels{$key} = q|3|; 
-$noresave{$key} = "$nosave";
-
-$key = q/tab:variables/;
-$external_latex_labels{$key} = q|4|; 
-$noresave{$key} = "$nosave";
-
-$key = q/aquamacs-tex/;
-$external_latex_labels{$key} = q|4|; 
-$noresave{$key} = "$nosave";
-
-$key = q/tab:command/;
-$external_latex_labels{$key} = q|3|; 
-$noresave{$key} = "$nosave";
-
-$key = q/Look/;
-$external_latex_labels{$key} = q|3.4.4|; 
-$noresave{$key} = "$nosave";
-
-$key = q/tab:shortcuts/;
-$external_latex_labels{$key} = q|2|; 
-$noresave{$key} = "$nosave";
-
-$key = q/aquamacs-screenshot.jpg/;
-$external_latex_labels{$key} = q|1|; 
-$noresave{$key} = "$nosave";
-
-$key = q/tab:terms/;
-$external_latex_labels{$key} = q|1|; 
-$noresave{$key} = "$nosave";
-
-$key = q/theme.jpg/;
-$external_latex_labels{$key} = q|2|; 
-$noresave{$key} = "$nosave";
-
-$key = q/frame-appearance-styles/;
-$external_latex_labels{$key} = q|3.4.4|; 
-$noresave{$key} = "$nosave";
-
-$key = q/standardpaths/;
-$external_latex_labels{$key} = q|5.2|; 
-$noresave{$key} = "$nosave";
-
 1;
 
