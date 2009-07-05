@@ -297,7 +297,8 @@ customization buffer."
 (require 'recentf)
 (ats "recentf loaded")
 (aquamacs-set-defaults 
- '((recentf-menu-before "Open Directory...                 ")
+ '((buffers-menu-max-size 25)
+   (recentf-menu-before "Open Directory...                 ")
    (recentf-max-menu-items 25)
    ;; must be set before turning on recentf mode
    (recentf-keep ( mac-is-mounted-volume-p file-remote-p file-readable-p))
