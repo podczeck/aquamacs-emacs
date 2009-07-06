@@ -134,8 +134,8 @@ if [ $compile ]; then
     "$em" -Q -batch -f batch-byte-compile Contents/Resources/site-lisp/macosx/*.el 
     echo "Compiling oneonone"
     "$em" -Q -batch -f batch-byte-compile Contents/Resources/site-lisp/oneonone/*.el
-    echo "Compiling tabbar"
-    "$em" -Q -batch -f batch-byte-compile Contents/Resources/site-lisp/tabbar/*.el
+    # echo "Compiling tabbar"
+    # "$em" -Q -batch -f batch-byte-compile Contents/Resources/site-lisp/tabbar/*.el
     echo "Compiling edit-modes"
     "$em" -Q -batch -f batch-byte-compile Contents/Resources/site-lisp/edit-modes/*.el
 
@@ -146,7 +146,9 @@ if [ $compile ]; then
     # delete, too large
     rm color-theme-library.elc
     # some .el are too large, and we have .elc anyways
-    gzip *.el macosx/*.el oneonone/*.el tabbar/*.el edit-modes/*.el
+    # don't compress tabbar - compilation doesn't work here
+    gzip *.el macosx/*.el oneonone/*.el edit-modes/*.el
+    gzip -d subdirs.el.gz  # never compress this
     cd -
 fi
 
