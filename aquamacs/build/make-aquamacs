@@ -116,7 +116,7 @@ comp_diskimage=no
 self_contained=yes
 app_symlink=no
 full_dist=yes
-compressed_dist=no
+compressed_dist=yes
 build_in_place=yes
 keep_directory=no
 binary_only=no
@@ -588,10 +588,6 @@ done
  
 
 
-# large, not needed
-rm -f "$dest/Contents/Resources/etc/termcap.src"
-cd "$dest/Contents/Resources"
-rm -f "leim/ja-dic/ja-dic.el" "lisp/loaddefs.el"  "lisp/ldefs-boot.el" "site-lisp/edit-modes/ess-mode/etc/other/S-spread/asaprc.ps" etc/*refcard.ps
 
 # byte-compile the site-lisp stuff
 
@@ -645,9 +641,17 @@ gzip tsang-*.elc quick-*.elc hanja*.elc ZOZY.elc ZIRANMA.elc SW.elc PY*.elc ETZY
 cd "$dest"/Contents/Resources/leim
 gzip ja-dic/ja-dic.elc
 
+# large, not needed
+cd "$dest/Contents/Resources"
+rm -f "etc/termcap.src"
+rm -f "leim/ja-dic/ja-dic.el" "lisp/loaddefs.el"  "lisp/ldefs-boot.el" "site-lisp/edit-modes/ess-mode/etc/other/S-spread/asaprc.ps" etc/*refcard.ps
+
+rm -f leim/ja-dic/ja-dic.elc.gz
+rm -f etc/NEWS.1-17* etc/NEWS.18* etc/NEWS.19* etc/NEWS.20* etc/NEWS.21*
+rm -rf leim/quail/*.elc.gz
 # compress info
-# no longer needed, is done by make-aquamacs / make-package
-# gzip ../info/*
+# should be done already
+# gzip info/*
 
 # get rid of the CVS directories
 pushd "$dest"
