@@ -192,6 +192,7 @@
 (autoload 'matlab-shell "matlab" "Interactive MATLAB mode." t)
 (assq-set-equal "\\.m$" 'matlab-mode 'auto-mode-alist) 
 
+(assq-set-equal "\\.org\\'" 'org-mode 'auto-mode-alist) 
 
 ;; ---------------------------------------------------------
 ;; PERL EDITING  
