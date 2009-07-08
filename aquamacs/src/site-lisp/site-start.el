@@ -57,6 +57,19 @@ Changes in this code are ignored during the online version check.")
 (unless (boundp 'initial-window-system)
   (defvaralias 'initial-window-system 'window-system))
 
+;; hotfix
+(define-key menu-bar-file-menu [revert-buffer]
+  '(menu-item "Revert Buffer" revert-buffer
+	      :enable (or revert-buffer-function
+			  revert-buffer-insert-file-contents-function
+			  (and buffer-file-number
+			       (or (and buffer-file-name
+					(file-remote-p buffer-file-name))
+				   (buffer-modified-p)
+				   (not (verify-visited-file-modtime
+					 (current-buffer))))))
+	      :help "Re-read current buffer from its file"))
+
 ;; only for Emacs.app
 (when (fboundp 'ns-find-file) ;; running Cocoa?
   (setq unicode-emacs 0)
