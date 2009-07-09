@@ -52,7 +52,7 @@
 ;; i.e. the first file in load-path
 ;; load the right auctex.el (first one in load-path)
 ;; (locate-library "auctex.el" t)
-(load "auctex.el" nil nil t)
+(load "auctex" nil nil nil t)
 ;; this is not done by default
 ;; maybe add a menu option?
 ;;(load "preview-latex.el" nil t t)
@@ -80,7 +80,7 @@ Only checks once - subsequent calls will not result in any action."
       (if (string-match "^no " (buffer-string))
 	   (message  
 	    "No Ghostscript (pdf2dsc) found - preview-latex not activated.")
-	(load "preview-latex.el" nil t nil)))
+	(load "preview-latex" nil t nil t)))
     (setq aq-preview-latex-checked t)) nil)
 
 ;; must be done here do initialize
