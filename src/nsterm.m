@@ -4811,56 +4811,6 @@ extern void update_window_cursor (struct window *w, int on);
   EV_TRAILER (e);
 }
 
-/* called on color panel selection */
-- (void)changeColor: (id)sender
-{
-  NSEvent *e =[[self window] currentEvent];
-  id newFont;
-  float size;
-
-  NSTRACE (changeColor);
-  if (!emacs_event)
-    return;
-
-  SET_FRAME_GARBAGED (emacsframe);
-
-  NSColor *c = [[NSColorPanel sharedColorPanel] color];
-  ns_input_color = ns_color_to_lisp (c);
-  ns_input_background_color = Qnil;
-
-  emacs_event->kind = NS_NONKEY_EVENT;
-  emacs_event->modifiers = EV_MODIFIERS (e);
-  emacs_event->code = KEY_NS_CHANGE_COLOR;
-
-  EV_TRAILER (e);
-}
-
-
-/* called on color panel selection */
-- (void)changeDocumentBackgroundColor: (id)sender
-{
-  NSEvent *e =[[self window] currentEvent];
-  struct face *face =FRAME_DEFAULT_FACE (emacsframe);
-  id newFont;
-  float size;
-
-  NSTRACE (changeColor);
-  if (!emacs_event)
-    return;
-
-  SET_FRAME_GARBAGED (emacsframe);
-
-  NSColor *c = [[NSColorPanel sharedColorPanel] color];
-  ns_input_background_color = ns_color_to_lisp (c);
-  ns_input_color = Qnil;
-
-  emacs_event->kind = NS_NONKEY_EVENT;
-  emacs_event->modifiers = EV_MODIFIERS (e);
-  emacs_event->code = KEY_NS_CHANGE_COLOR;
-
-  EV_TRAILER (e);
-}
-
 - (BOOL)acceptsFirstResponder
 {
   NSTRACE (acceptsFirstResponder);
