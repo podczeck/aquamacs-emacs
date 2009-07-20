@@ -377,9 +377,6 @@ typedef unsigned long NSUInteger;
 #define KEY_NS_ABOUT                   ((1<<28)|(0<<16)|130)
 #define KEY_NS_CHECK_FOR_UPDATES       ((1<<28)|(0<<16)|131)
 #define KEY_NS_TOOLBAR_CUSTOMIZED      ((1<<28)|(0<<16)|132)
-#define KEY_NS_ABOUT                   ((1<<28)|(0<<16)|130)
-#define KEY_NS_CHECK_FOR_UPDATES       ((1<<28)|(0<<16)|131)
-
 /* could use list to store these, but rest of emacs has a big infrastructure
    for managing a table of bitmap "records" */
 struct ns_bitmap_record

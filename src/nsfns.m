@@ -1388,7 +1388,8 @@ Shows the NS spell checking panel and brings it to the front.*/)
   BLOCK_INPUT;
   [[sc spellingPanel] orderFront: NSApp];
 
-  [sc updateSpellingPanelWithMisspelledWord:@""]; // no word, no spelling errors
+  // Spelling panel should appear with previous content, not empty.
+  //  [sc updateSpellingPanelWithMisspelledWord:@""]; // no word, no spelling errors
 
   // found here: http://trac.webkit.org/changeset/19670
   // // FIXME 4811447: workaround for lack of API 
@@ -1584,6 +1585,26 @@ DEFUN ("ns-spellchecker-list-languages", Fns_spellchecker_list_languages, Sns_sp
     retval = Fcons (build_string ([[langs objectAtIndex:i] UTF8String]),
 		    retval);
   }
+  UNBLOCK_INPUT;
+  return retval;
+}
+
+
+DEFUN ("ns-spellchecker-current-language", Fns_spellchecker_current_language, Sns_spellchecker_current_language,
+       0, 0, 0,
+       doc: /* Get the current spell-checking language.*/)
+     ()
+{
+  id sc;
+
+  check_ns ();
+  BLOCK_INPUT;
+  sc = [NSSpellChecker sharedSpellChecker];
+
+  Lisp_Object retval = Qnil;
+  NSString *lang = [sc language];
+  retval = build_string ([lang UTF8String]);
+
   UNBLOCK_INPUT;
   return retval;
 }
@@ -3132,6 +3153,7 @@ be used as the image of the icon representing the frame.  */);
   defsubr (&Sns_spellchecker_check_grammar);
   defsubr (&Sns_spellchecker_get_suggestions);
   defsubr (&Sns_spellchecker_list_languages);
+  defsubr (&Sns_spellchecker_current_language);
   defsubr (&Sns_spellchecker_set_language);
   defsubr (&Sns_popup_font_panel);
   defsubr (&Sns_popup_color_panel);

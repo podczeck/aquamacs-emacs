@@ -1,4 +1,4 @@
-;;; ns-win.el --- lisp side of interface with NeXT/Open/GNUstep/MacOS X window system
+;;; ns-win.el n.el --- lisp side of interface with NeXT/Open/GNUstep/MacOS X window system
 
 ;; Copyright (C) 1993, 1994, 2005, 2006, 2007, 2008, 2009
 ;;   Free Software Foundation, Inc.
@@ -57,7 +57,7 @@
 (require 'fontset)
 
 ;; Not needed?
-;;(require 'ispell)
+;(require 'ispell)
 
 (defgroup ns nil
   "GNUstep/Mac OS X specific features."
@@ -232,6 +232,8 @@ The properties returned may include `top', `left', `height', and `width'."
 (define-key global-map [S-ns-drag-color] 'ns-set-background-at-mouse)
 (define-key global-map [ns-drag-text] 'ns-insert-text)
 (define-key global-map [ns-change-font] 'ns-respond-to-change-font)
+(define-key global-map [ns-check-spelling] 'ns-respond-to-find-next-misspelling)
+(define-key global-map [ns-spelling-change] 'ns-respond-to-change-spelling)
 (define-key global-map [ns-open-file-line] 'ns-open-file-select-line)
 (define-key global-map [ns-spi-service-call] 'ns-spi-service-call)
 (define-key global-map [ns-new-frame] 'make-frame)
@@ -279,7 +281,6 @@ The properties returned may include `top', `left', `height', and `width'."
 	     (cons (logior (lsh 0 16)  17) 'ns-change-color)
 	     (cons (logior (lsh 0 16)  20) 'ns-check-spelling)
 	     (cons (logior (lsh 0 16)  21) 'ns-spelling-change)
-
 	     (cons (logior (lsh 0 16)  90) 'ns-application-activated)
 	     (cons (logior (lsh 0 16)  91) 'ns-application-open-untitled)
 	     (cons (logior (lsh 0 16)  130) 'ns-about) ;; Aquamacs only
@@ -985,6 +986,31 @@ See the documentation of `create-fontset-from-fontset-spec' for the format.")
 		(format "Creation of the standard fontset failed: %s" err)
 		:error)))))
 
+;;;; Spelling panel support.
+
+(autoload 'ns-start-spellchecker "flyspell"
+  "Show NSSpellChecker spellingPanel, and call
+ns-highlight-misspelling-and-suggest, which see." t) 
+
+(autoload 'ns-highlight-misspelling-and-suggest "flyspell"
+  "Search forward in current buffer for first misspelling, looping if end
+is reached.  If found, set region to the misspelling, apply face
+flyspell-incorrect, and show word in OS X spelling panel" nil)
+
+(defun ns-respond-to-change-spelling (start end)
+  "Respond to changeSpelling: event, expecting ns-spelling-text
+to substitute for selected buffer text."
+  (interactive "r")
+  (if mark-active
+      (delete-region start end))
+  (insert ns-spelling-text))
+
+(defun ns-respond-to-find-next-misspelling ()
+  "Respond to checkSpelling: event.  Also called by Spellchecker
+panel immediately after correcting a word in a buffer."
+  (interactive)
+  (ns-highlight-misspelling-and-suggest)
+  ) 
 
 ;;;; Pasteboard support.
 
