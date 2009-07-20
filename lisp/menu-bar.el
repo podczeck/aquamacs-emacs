@@ -551,9 +551,7 @@ result in a duplicate entry."
   (interactive "r")
   (when (or (not transient-mark-mode) mark-active)
     (let ((x-select-enable-clipboard t))
-      (kill-ring-save beg end)
-      (if (equal (car kill-ring) (cadr kill-ring))
-      	  (setcdr kill-ring (cddr kill-ring))))))
+      (kill-ring-save beg end))))
 
 (defun clipboard-kill-region (beg end)
   "Kill the region, and save it in the X clipboard."
