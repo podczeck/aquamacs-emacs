@@ -5743,7 +5743,7 @@ get_next_display_element (it)
 				  || it->c == 0xAD /* SOFT HYPHEN */)))
 		       : (it->c >= 127
 			  && (! unibyte_display_via_language_environment
-			      || (UNIBYTE_CHAR_HAS_MULTIBYTE_P (it->c)))))))
+			      || (DECODE_UNIBYTE (it->c) <= 0xA0))))))
 	    {
 	      /* IT->c is a control character which must be displayed
 		 either as '\003' or as `^C' where the '\\' and '^'
@@ -11838,6 +11838,10 @@ redisplay_internal (preserve_echo_area)
 	      if (FRAME_VISIBLE_P (f) && !FRAME_OBSCURED_P (f))
 		redisplay_windows (FRAME_ROOT_WINDOW (f));
 
+	      /* The X error handler may have deleted that frame.  */
+	      if (!FRAME_LIVE_P (f))
+		continue;
+
 	      /* Any scroll bars which redisplay_windows should have
 		 nuked should now go away.  */
 	      if (FRAME_TERMINAL (f)->judge_scroll_bars_hook)
@@ -12255,7 +12259,7 @@ redisplay_windows (window)
 	redisplay_windows (w->hchild);
       else if (!NILP (w->vchild))
 	redisplay_windows (w->vchild);
-      else
+      else if (!NILP (w->buffer))
 	{
 	  displayed_buffer = XBUFFER (w->buffer);
 	  /* Use list_of_error, not Qerror, so that
@@ -21192,9 +21196,8 @@ x_produce_glyphs (it)
 	{
 	  if (SINGLE_BYTE_CHAR_P (it->c)
 	      && unibyte_display_via_language_environment)
-	    it->char_to_display = unibyte_char_to_multibyte (it->c);
-	  if (! SINGLE_BYTE_CHAR_P (it->char_to_display))
 	    {
+	      it->char_to_display = DECODE_UNIBYTE (it->c);
 	      it->multibyte_p = 1;
 	      it->face_id = FACE_FOR_CHAR (it->f, face, it->char_to_display,
 					   -1, Qnil);

@@ -553,6 +553,9 @@ along with Aquamacs Emacs.  If not, see <http://www.gnu.org/licenses/>.
 	<string>6.0</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
+	<!-- This should be the emacs version number. -->
+	<key>CFBundleShortVersionString</key>
+	<string>23.0.96</string>
 	<key>CFBundleSignature</key>
 	<string>EMAx</string>
 	<!-- This SHOULD be a build number. -->

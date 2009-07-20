@@ -1615,7 +1615,11 @@ extension for a compressed format \(e.g. \".gz\") on FILE will not affect
 this name matching.
 
 Alternatively, FILE can be a feature (i.e. a symbol), in which case FORM
-is evaluated whenever that feature is `provide'd.
+is evaluated whenever that feature is `provide'd.  Note that although
+provide statements are usually at the end of files, this is not always
+the case (e.g., sometimes they are at the start to avoid a recursive
+load error).  If your FORM should not be evaluated until the code in
+FILE has been, do not use the symbol form for FILE in such cases.
 
 Usually FILE is just a library name like \"font-lock\" or a feature name
 like 'font-lock.
@@ -1687,16 +1691,17 @@ Signal an error if the program returns with a non-zero exit status."
 Returns a subprocess-object to represent the connection.
 Input and output work as for subprocesses; `delete-process' closes it.
 
-Args are NAME BUFFER HOST SERVICE.
-NAME is name for process.  It is modified if necessary to make it unique.
-BUFFER is the buffer (or buffer name) to associate with the process.
- Process output goes at end of that buffer, unless you specify
- an output stream or filter function to handle the output.
- BUFFER may be also nil, meaning that this process is not associated
- with any buffer.
-HOST is name of the host to connect to, or its IP address.
-SERVICE is name of the service desired, or an integer specifying
- a port number to connect to."
+NAME is the name for the process.  It is modified if necessary to make
+ it unique.
+BUFFER is the buffer (or buffer name) to associate with the
+ process.  Process output goes at end of that buffer.  BUFFER may
+ be nil, meaning that this process is not associated with any buffer.
+HOST is the name or IP address of the host to connect to.
+SERVICE is the name of the service desired, or an integer specifying
+ a port number to connect to.
+
+This is a wrapper around `make-network-process', and only offers a
+subset of its functionality."
     (make-network-process :name name :buffer buffer
 				     :host host :service service)))
 
