@@ -228,7 +228,7 @@ The properties returned may include `top', `left', `height', and `width'."
 (define-key global-map [ns-power-off] 'save-buffers-kill-emacs)
 (define-key global-map [ns-open-file] 'ns-find-file)
 (define-key global-map [ns-open-temp-file] [ns-open-file])
-(define-key global-map [ns-drag-file] 'ns-insert-file)
+(define-key global-map [ns-drag-file] 'ns-handle-drag-file)
 (define-key global-map [ns-drag-color] 'ns-set-foreground-at-mouse)
 (define-key global-map [S-ns-drag-color] 'ns-set-background-at-mouse)
 (define-key global-map [ns-drag-text] 'ns-insert-text)
@@ -714,6 +714,15 @@ prompting.  If file is a directory perform a `find-file' on it."
         (find-file f)
       (push-mark (+ (point) (car (cdr (insert-file-contents f))))))))
 
+(defun ns-handle-drag-file ()
+  (interactive)
+  (require 'dnd)
+  (while (car ns-input-file)
+    ;; quick and dirty hack
+    (dnd-open-local-file (concat "file://"
+			  (car ns-input-file)) nil)
+    (setq ns-input-file (cdr ns-input-file))))
+
 (defvar ns-select-overlay nil
   "Overlay used to highlight areas in files requested by Nextstep apps.")
 (make-variable-buffer-local 'ns-select-overlay)
@@ -1157,7 +1166,7 @@ On Nextstep, put TEXT in the pasteboard; PUSH is ignored."
 (declare-function ns-list-colors "nsfns.m" (&optional frame))
 
 (defvar x-colors (ns-list-colors)
-  "List of available colors for graphical frames.
+  "List of basic colors available on color displays.
 For X, the list comes from the `rgb.txt' file,v 10.41 94/02/20.
 For Nextstep, this is a list of non-PANTONE colors returned by
 the operating system.")
