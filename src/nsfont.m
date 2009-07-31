@@ -483,9 +483,12 @@ ns_findfonts (Lisp_Object font_spec, BOOL isMatch)
 	if (![cFamilies containsObject:
 	         [desc objectForKey: NSFontFamilyAttribute]])
 	    continue;
-	list = Fcons (ns_descriptor_to_entity (desc,
-					 AREF (font_spec, FONT_EXTRA_INDEX),
-					 NULL), list);
+        tem = ns_descriptor_to_entity (desc,
+                                       AREF (font_spec, FONT_EXTRA_INDEX),
+                                       NULL);
+        if (isMatch)
+          return tem;
+	list = Fcons (tem, list);
 	if (fabs (ns_attribute_fvalue (desc, NSFontSlantTrait)) > 0.05)
 	    foundItal = YES;
       }
@@ -501,6 +504,10 @@ ns_findfonts (Lisp_Object font_spec, BOOL isMatch)
 					 AREF (font_spec, FONT_EXTRA_INDEX),
 					 "synthItal"), list);
       }
+
+    /* Return something if was a match and nothing found. */
+    if (isMatch)
+      return ns_fallback_entity ();
 
     if (NSFONT_TRACE)
 	fprintf (stderr, "    Returning %d entities.\n", XINT (Flength (list)));
