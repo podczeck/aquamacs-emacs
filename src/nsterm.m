@@ -3563,6 +3563,10 @@ x_wm_set_icon_position (struct frame *f, int icon_x, int icon_y)
 
    ========================================================================== */
 
+#ifndef NSAppKitVersionNumber10_5
+#define NSAppKitVersionNumber10_5 949
+#endif
+
 static void
 ns_fullscreen_hook  (f)
 FRAME_PTR f;
@@ -3584,15 +3588,25 @@ FRAME_PTR f;
 	  switch (f->want_fullscreen)
 	    {
 	    case FULLSCREEN_BOTH:
-
+	      NSDictionary *opts;
+	      if (NSAppKitVersionNumber < NSAppKitVersionNumber10_5)
+		{
+		  opts = [NSDictionary dictionaryWithObjectsAndKeys:
+					    [NSNumber numberWithInt:NSNormalWindowLevel],
+				       NSFullScreenModeWindowLevel, nil];
+		} else
+		{
+		  opts = [NSDictionary dictionaryWithObjectsAndKeys:
+					   [NSNumber numberWithBool:NO],
+				       NSFullScreenModeAllScreens, /* defined from 10.5 on */
+						   // problem  rdar://5804777 prevents
+				       // the window level from being set correctly.
+					    [NSNumber numberWithInt:NSNormalWindowLevel],
+				       NSFullScreenModeWindowLevel, nil];
+		}
+	      
 	      [view enterFullScreenMode:[[view window] screen]
-	      		    withOptions:[NSDictionary dictionaryWithObjectsAndKeys:
-	      						  [NSNumber numberWithBool:NO],
-	      					      NSFullScreenModeAllScreens,
-	      					      // problem  rdar://5804777 prevents
-	      					      // the window level from being set correctly.
-	      						   [NSNumber numberWithInt:NSNormalWindowLevel],
-	      					      NSFullScreenModeWindowLevel, nil]];
+	      		    withOptions:opts];
 
 	      // causes black screen.
 	      //[[view window] setLevel:[NSNumber numberWithInt:NSNormalWindowLevel]];
