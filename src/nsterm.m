@@ -3579,6 +3579,7 @@ FRAME_PTR f;
   if (f->async_visible)
     {
       EmacsView *view = FRAME_NS_VIEW (f);
+      NSDictionary *opts = nil;
 
       if ([view respondsToSelector:@selector(exitFullScreenModeWithOptions:)])
 	{
@@ -3588,7 +3589,7 @@ FRAME_PTR f;
 	  switch (f->want_fullscreen)
 	    {
 	    case FULLSCREEN_BOTH:
-	      NSDictionary *opts;
+
 	      if (NSAppKitVersionNumber < NSAppKitVersionNumber10_5)
 		{
 		  opts = [NSDictionary dictionaryWithObjectsAndKeys:
