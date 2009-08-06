@@ -3584,11 +3584,11 @@ FRAME_PTR f;
 	{
 	  BLOCK_INPUT;
 	  NSDisableScreenUpdates();
+	  NSDictionary *opts;
 
 	  switch (f->want_fullscreen)
 	    {
 	    case FULLSCREEN_BOTH:
-	      NSDictionary *opts;
 	      if (NSAppKitVersionNumber < NSAppKitVersionNumber10_5)
 		{
 		  opts = [NSDictionary dictionaryWithObjectsAndKeys:
