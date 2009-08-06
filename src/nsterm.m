@@ -3579,6 +3579,7 @@ FRAME_PTR f;
   if (f->async_visible)
     {
       EmacsView *view = FRAME_NS_VIEW (f);
+      NSDictionary *opts = nil;
 
       if ([view respondsToSelector:@selector(exitFullScreenModeWithOptions:)])
 	{
