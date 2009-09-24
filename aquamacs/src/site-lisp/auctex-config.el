@@ -1,4 +1,4 @@
-v;; configuration for AUCTeX on OS X
+;; Configuration for AUCTeX on OS X
 
 ;; Maintainer: David Reitter
 ;; originally authored by Kevin Walzer
@@ -6,7 +6,6 @@ v;; configuration for AUCTeX on OS X
  
 ;; This file is part of Aquamacs Emacs
 ;; http://www.aquamacs.org/
-
 
 ;; Aquamacs Emacs is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
