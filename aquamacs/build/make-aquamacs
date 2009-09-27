@@ -636,22 +636,20 @@ cd "$dest"/Contents/Resources/lisp
 
 # gzip    woman.elc wid-edit.elc vc.elc type-break.elc term.elc speedbar.elc subr.elc simple.elc printing.elc ps-print.elc info.elc menu-bar.elc ido.elc files.elc ediff-util.elc cus-edit.elc
 
-cd "$dest"/Contents/Resources/leim/quail
-gzip tsang-*.elc quick-*.elc hanja*.elc ZOZY.elc ZIRANMA.elc SW.elc PY*.elc ETZY.elc ECDICT.elc CTLau*.elc CCDOSPY.elc ARRAY30.elc 4Corner.elc
-cd "$dest"/Contents/Resources/leim
-gzip ja-dic/ja-dic.elc
+#cd "$dest"/Contents/Resources/leim/quail
+#gzip tsang-*.elc quick-*.elc hanja*.elc ZOZY.elc ZIRANMA.elc SW.elc PY*.elc ETZY.elc ECDICT.elc CTLau*.elc CCDOSPY.elc ARRAY30.elc 4Corner.elc
 
-# large, not needed
+# large, not needed:
 cd "$dest/Contents/Resources"
 rm -f "etc/termcap.src"
 rm -f "leim/ja-dic/ja-dic.el" "lisp/loaddefs.el"  "lisp/ldefs-boot.el" "site-lisp/edit-modes/ess-mode/etc/other/S-spread/asaprc.ps" etc/*refcard.ps
-
-rm -f leim/ja-dic/ja-dic.elc.gz
+ 
 rm -f etc/NEWS.1-17* etc/NEWS.18* etc/NEWS.19* etc/NEWS.20* etc/NEWS.21*
-rm -rf leim/quail/*.elc.gz
-# compress info
-# should be done already
-# gzip info/*
+
+rm -f leim/quail/*.elc.gz leim/quail/*.elc leim/ja-dic/ja-dic.elc lisp/mh-e/*.elc lisp/obsolete/*.elc lisp/printing.elc lisp/ps-print.elc lisp/textmodes/org-*.elc lisp/textmodes/table.elc lisp/wid-edit.elc lisp/woman.elc site-lisp/edit-modes/inf-ruby.elc site-lisp/edit-modes/ruby-electric.elc lisp/language/ethio-util.elc lisp/language/thai-word.elc
+
+# compress info and other stuff
+gzip lisp/textmodes/org.elc   info/*
 
 # get rid of the CVS directories
 pushd "$dest"
