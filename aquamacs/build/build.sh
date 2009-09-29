@@ -108,10 +108,17 @@ if test "${BUILD_AQUAMACS}" == "yes"; then
 
     cd aquamacs
 
+    # for intel only:
+    # export CFLAGS="-DMAC_OS_X_VERSION_MIN_REQUIRED=1040 -g -O9 -mtune=nocona -pipe -fomit-frame-pointer"
+
     # -g -> debug symbols
     # -O3 -> max optimize (speed)
     # -fno-inline-functions => to keep size down
-    export CFLAGS="-DMAC_OS_X_VERSION_MIN_REQUIRED=1040 -g -O9 -mtune=nocona -pipe -fomit-frame-pointer" 
+    if [ ! "${CFLAGS}" ]
+    then
+	export CFLAGS="-DMAC_OS_X_VERSION_MIN_REQUIRED=1040 -g -O9" 
+    fi
+    
 # (benchmark 10 '(aquamacs-setup))
 # -j3 -g -O3 -mtune=nocona -pipe
 # 10sec
