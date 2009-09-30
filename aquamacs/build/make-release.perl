@@ -15,6 +15,7 @@ $PPC_BINARY = '/Applications/Aquamacs Emacs PPC.app';
 
 $RELEASE_NOTES = "$PROJECT_DIR/aquamacs/doc/latex/changes.pdf";
 
+&sys("gzip -d \"$INTEL_BINARY/Contents/Resources/site-lisp/site-start.el.gz\"");
 $VERS=&sys("perl -ne 'print \$1 if (/defvar *aquamacs-version *\"(.*?)\"/);print \$1 if (/defvar *aquamacs-minor-version *\"(.*?)\"/);' < \"$INTEL_BINARY/Contents/Resources/site-lisp/site-start.el\"");
 
 $target = "\"/Users/dr/Desktop/Aquamacs-Emacs-$VERS.dmg\"";
@@ -49,6 +50,7 @@ if ($VOL =~ /\/Volumes\/Aquam/i)
   {
 
 &sys("rm -rf \"$VOL/Aquamacs Emacs.app\"");
+&sys("rm -rf \"$VOL/Aquamacs.app\"");
  
 &sys("cp  -pR \"$INTEL_BINARY\" \"$VOL/\"");
   } else 
