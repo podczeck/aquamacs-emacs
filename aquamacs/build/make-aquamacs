@@ -646,12 +646,12 @@ rm -f "leim/ja-dic/ja-dic.el" "lisp/loaddefs.el"  "lisp/ldefs-boot.el" "site-lis
  
 rm -f etc/NEWS.1-17* etc/NEWS.18* etc/NEWS.19* etc/NEWS.20* etc/NEWS.21*
 
-rm -f leim/quail/*.elc.gz leim/quail/*.elc leim/ja-dic/ja-dic.elc lisp/mh-e/*.elc lisp/obsolete/*.elc lisp/printing.elc lisp/ps-print.elc lisp/term.elc lisp/textmodes/org-*.elc lisp/textmodes/table.elc lisp/wid-edit.elc lisp/woman.elc site-lisp/edit-modes/inf-ruby.elc site-lisp/edit-modes/ruby-electric.elc lisp/language/ethio-util.elc lisp/language/thai-word.elc
+rm -f leim/quail/*.elc.gz leim/quail/*.elc leim/ja-dic/ja-dic.elc lisp/mh-e/*.elc lisp/obsolete/*.elc lisp/printing.elc lisp/ps-print.elc lisp/textmodes/org-*.elc lisp/textmodes/table.elc lisp/wid-edit.elc lisp/woman.elc site-lisp/edit-modes/inf-ruby.elc site-lisp/edit-modes/ruby-electric.elc lisp/language/ethio-util.elc lisp/language/thai-word.elc
 
 # compress info and other stuff
 gzip  info/*
 cd lisp
-gzip textmodes/org.elc allout.elc ps-print.elc 
+gzip textmodes/org.elc allout.elc ps-print.elc term.elc
 cd ..
 
 # get rid of the CVS directories
