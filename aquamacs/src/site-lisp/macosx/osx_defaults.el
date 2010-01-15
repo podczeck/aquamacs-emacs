@@ -1,4 +1,3 @@
-
 ;; Aquamacs Emacs OS X defaults
 ;; these defaults attempt to turn Emacs into a nice application for 
 ;; Mac OS X that adheres to at least some of the user interface 
@@ -284,10 +283,9 @@ from earlier versions of the distribution."
       (("\\`/[^/]*:\\([^/]*/\\)*\\([^/]*\\)\\'"
 	;; Don't put "\\2" inside expand-file-name, since it will be
 	;; transformed to "/2" on DOS/Windows.
-	,(concat temporary-file-directory "\\2") t)
-       ;; put all files into the tmp dir (it's user specific)
-       ("\\`\\([^/]*/\\)*\\([^/]*\\)\\'"
 	,(concat temporary-file-directory "\\2") t)))
+     (auto-save-file-name-prefix ".AutoSave-")
+     (auto-save-file-name-postfix "")
      (auto-save-list-file-prefix 
       "~/Library/Preferences/Aquamacs Emacs/auto-save-list/.saves-")
      ( save-place-file "~/Library/Preferences/Aquamacs Emacs/places.el")
