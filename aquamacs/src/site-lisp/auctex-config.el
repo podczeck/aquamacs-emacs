@@ -193,17 +193,21 @@ This will normally be the line number at that position, unless
 Aquamacs defines an AUCTeX command called `Jump to PDF', 
 which calls this viewer.")
 
-(defun aquamacs-call-viewer (the-file line source)
-"Display THE-FILE as PDF at LINE (as in file SOURCE).
-Calls `aquamacs-tex-pdf-viewer' to display the PDF file THE-FILE."
-  (let ((full-file-name
+
+(defun aquamacs-call-viewer (line source)
+  "Display current output file as PDF at LINE (as in file SOURCE).
+Calls `aquamacs-tex-pdf-viewer' to display the PDF file."
+  (let ((full-file-name 
+	 (expand-file-name
+	  ;; as in TeX-view
+	  ;; C-c C-c view uses %o (from TeX-expand-list), which
+	  ;; is the same.
+	  (TeX-active-master (TeX-output-extension))
+	  default-directory))
+	(full-source-name
 	 (expand-file-name 
-	  the-file 
-	  (and buffer-file-name (file-name-directory buffer-file-name))))
-      (full-source-name
-       (expand-file-name 
-	source 
-	(and buffer-file-name (file-name-directory buffer-file-name)))))
+	  source 
+	  default-directory)))
   (do-applescript
   (format 
  "
@@ -290,7 +294,7 @@ If nil Aquamacs uses Skim if and only if it has been running."
 	       '("%(FileLine)" TeX-current-file-line) 'append)
   (add-to-list 'TeX-command-list
 	     '("Jump to PDF" 
-	       "(aquamacs-call-viewer \"%o\" %(FileLine) \"%b\")" 
+	       "(aquamacs-call-viewer %(FileLine) \"%b\")" 
 	       TeX-run-function nil t 
 	       :help "Jump here in Skim") 'append)
   
