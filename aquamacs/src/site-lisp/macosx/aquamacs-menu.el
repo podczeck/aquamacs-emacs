@@ -256,9 +256,6 @@ customization buffer."
   :set 'set-aquamacs-known-major-modes)
 
 
-;; compatibility (old symbol used in 0.9.6)
-(defalias 'aquamacs-menu-new-buffer-modes 'aquamacs-known-major-modes)
-
 ; (aquamacs-menu-bar-setup)
 (defun aquamacs-menu-bar-setup ()
 
