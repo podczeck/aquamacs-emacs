@@ -1438,7 +1438,7 @@ Internal use.")
     (setq found (ispell-aspell-add-aliases found))
     ;; Merge into FOUND any elements from the standard ispell-dictionary-alist
     ;; which have no element in FOUND at all.
-    ;; ==SKIP this step -- don't add entries corresponding to dicts we don't have!!!==
+    ;;==SKIP this step -- don't add entries corresponding to dicts we don't have!==
 ;;         (dolist (dict ispell-dictionary-alist)
 ;;           (unless (assoc (car dict) found)
 ;;            (setq found (nconc found (list dict)))))
@@ -1472,10 +1472,10 @@ Internal use.")
 
 (defun ispell-get-aspell-config-value (key)
   "Return value of Aspell configuration option KEY.
-Assumes that value contains no whitespace."
+Allow spaces in return value."
   (with-temp-buffer
     (ispell-call-process ispell-program-name nil t nil "config" key)
-    (car (split-string (buffer-string)))))
+    (car (split-string (buffer-string) "[\t\f\r\n\v]+"))))
 
 (defun ispell-aspell-find-dictionary (dict-name)
   ;; This returns nil if the data file does not exist.
@@ -1495,13 +1495,27 @@ Assumes that value contains no whitespace."
                      (file-expand-wildcards
                       (concat "/Library/Application Support/cocoAspell/aspell*-*-*/"
                               dict-name ".alias")))))))
-	 (data-file
+       (data-file
         (if ispell-use-cocoaspell-internal
             (concat dict-dir "/" lang ".dat")
-          (concat (or ispell-aspell-data-dir
-                      (setq ispell-aspell-data-dir
-                            (ispell-get-aspell-config-value "data-dir")))
-                  "/" lang ".dat")))
+          (let ((datfile-local
+		 ;; filename expected for language in local-data-dir
+		 ;; Use this one if it exists
+		 (concat (ispell-get-aspell-config-value "local-data-dir")
+			 "/" lang ".dat"))
+		(datfile
+		 ;; filename expected for language data file in general data-dir
+		 (concat (or ispell-aspell-data-dir
+			     (setq ispell-aspell-data-dir
+				   (ispell-get-aspell-config-value "data-dir")))
+			 "/" lang ".dat")))
+	    (cond
+	     ((file-exists-p datfile-local) datfile-local)
+	     ((file-exists-p datfile) datfile)
+	     (t
+	      (message (concat "Can't find data file for language %s.  "
+			       "Looked for %s and %s.")
+		       dict-name datfile-local datfile))))))
        otherchars
        charset)
     (condition-case ()
